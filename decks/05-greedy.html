@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Greedy Algorithms · TC2038</title>
+<meta name="description" content="TC2038 Analysis and Design of Advanced Algorithms — Greedy Algorithms">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<link rel="stylesheet" href="../assets/css/course.css">
+</head>
+<body>
+<div class="reveal">
+<div class="slides">
+<!--
+  SLIDES ARE WRITTEN IN MARKDOWN BELOW
+  ---   new horizontal slide        --    new vertical slide (press ↓)
+  Note: everything after this line is a speaker note (press S)
+  Keep HTML blocks (quizzes, widgets) flush-left and without blank lines inside.
+-->
+<section data-markdown data-separator="^---$" data-separator-vertical="^--$" data-separator-notes="^Note:">
+<textarea data-template>
+<!-- .slide: class="title" -->
+<span class="kicker">TC2038 · Session 05</span>
+
+# Greedy algorithms
+
+### Take the best you can get right now — and hope
+
+<p class="byline">Dr. Gildardo Sánchez Ante · Tecnológico de Monterrey</p>
+
+Note:
+⏱ 0:00–0:02. Today: when "best right now" gives the best overall (Huffman), and when it doesn't (coins, scheduling).
+
+---
+
+<!-- .slide: class="activity" -->
+## Warm-up: pay 15 darseks
+
+In the Klingon Empire coins come in **1, 7 and 10 darseks**. Pay exactly 15 with the **fewest coins**.
+
+<div class="predict" data-answer="3" data-tol="0">
+<p class="q">Minimum number of coins?</p>
+<p class="explain">7 + 7 + 1 = 15 → <b>3 coins</b>. Most people start with the 10 and end up with 10 + 1 + 1 + 1 + 1 + 1 = 6 coins. That instinct has a name: <b>greedy</b>.</p>
+</div>
+
+Note:
+⏱ 0:02–0:06. Ask them to answer individually first, then reveal. Count how many started with the 10.
+
+---
+
+## Today
+
+<ul class="agenda">
+<li><span class="t">0:06</span> Optimization problems & the greedy recipe</li>
+<li><span class="t">0:15</span> Counting money: success and failure</li>
+<li><span class="t">0:25</span> <b>Checkpoint 1</b></li>
+<li><span class="t">0:30</span> Scheduling jobs on processors</li>
+<li><span class="t">0:45</span> <b>Checkpoint 2</b></li>
+<li><span class="t">0:50</span> Huffman codes</li>
+<li><span class="t">1:15</span> Build your own Huffman tree</li>
+<li><span class="t">1:25</span> MST, TSP & cost of greedy</li>
+<li><span class="t">1:33</span> <b>Exit ticket</b></li>
+</ul>
+
+---
+
+## Optimization problems
+
+> Find not just **a** solution, but the **best** one.
+
+A greedy algorithm works in **phases**. At each phase:
+
+- take the best you can get **right now**, without regard for future consequences; <!-- .element: class="fragment" -->
+- **hope** that a sequence of local optima ends in a global optimum. <!-- .element: class="fragment" -->
+
+Note:
+⏱ 0:06–0:09.
+
+---
+
+## Every greedy choice must be…
+
+<div class="cols3">
+<div class="card fragment"><h4>Feasible</h4><p>It satisfies the problem's constraints.</p></div>
+<div class="card fragment"><h4>Locally optimal</h4><p>The best among the feasible choices available at this step.</p></div>
+<div class="card fragment"><h4>Irrevocable</h4><p>Once made, it is never undone.</p></div>
+</div>
+
+<p class="fragment callout">Irrevocable is the key difference with backtracking and dynamic programming.</p>
+
+Note:
+⏱ 0:09–0:15.
+
+---
+
+## Counting money
+
+Rule: take the **largest bill or coin that does not overshoot**.
+
+<div class="w" data-widget="change" data-coins="1,5,10,25" data-amount="63"></div>
+
+Note:
+⏱ 0:15–0:22. US example from the old slides: 6.39 USD = 5 USD bill + 1 USD bill + 25¢ + 10¢ + 4×1¢. For US coins greedy is always optimal (the system is "canonical"). Then click Darsek: 6 coins vs 3. Then (1,3,4)·6: 4+1+1 vs 3+3.
+
+---
+
+## Why bother, then?
+
+- Greedy is **fast**: each step only looks at the immediate options.
+- If we can **prove** it optimal for a problem → excellent algorithm.
+- If the problem is intractable (NP-hard), greedy may give a **good approximation** quickly.
+
+<details><summary>How do we prove a greedy algorithm correct?</summary>
+Two ingredients. <b>Greedy-choice property:</b> some optimal solution starts with the greedy choice (usually shown with an <i>exchange argument</i>: take any optimal solution and swap in the greedy choice without making it worse). <b>Optimal substructure:</b> after the greedy choice, what remains is a smaller instance of the same problem.
+</details>
+
+Note:
+⏱ 0:22–0:25. Remember movie scheduling from session 02: "earliest finish first" is proved optimal with an exchange argument.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="2">
+<p class="q">Coins {1, 5, 12}. Amount 15. Greedy vs optimal?</p>
+<ol><li>Both 3 coins</li><li>Greedy 4 coins (12+1+1+1), optimal 3 (5+5+5)</li><li>Greedy 3, optimal 2</li><li>Greedy can't reach 15</li></ol>
+<p class="explain">One counterexample is enough: {1, 5, 12} is not a canonical coin system.</p>
+</div>
+
+Note:
+⏱ 0:25–0:27.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="3">
+<p class="q">Which property makes greedy different from backtracking?</p>
+<ol><li>Feasibility</li><li>Local optimality</li><li>Irrevocability</li><li>Recursion</li></ol>
+<p class="explain">Backtracking undoes choices when they lead to a dead end; greedy never looks back.</p>
+</div>
+
+Note:
+⏱ 0:27–0:30.
+
+---
+
+## Scheduling jobs
+
+Nine jobs with running times **3, 5, 6, 10, 11, 14, 15, 18, 20** minutes. Three processors.
+
+Goal: **finish everything as early as possible** (minimize the makespan).
+
+<div class="predict" data-answer="35" data-tol="0">
+<p class="q">Greedy: longest job first, on whichever processor frees up first. Finish time?</p>
+<p class="explain">P1: 20, 10, 3 · P2: 18, 11, 6 · P3: 15, 14, 5 → makespan <b>35</b> (P2: 18 + 11 + 6).</p>
+</div>
+
+Note:
+⏱ 0:30–0:34. Give them 2 minutes on paper.
+
+---
+
+## Longest first vs shortest first
+
+<div class="w" data-widget="schedule" data-jobs="3,5,6,10,11,14,15,18,20" data-m="3" data-strategy="lpt" data-h="260"></div>
+
+Note:
+⏱ 0:34–0:42. LPT gives 35. Switch to "Shortest first": 40 (6 + 14 + 20) — worse. Then "Optimal": 34. Note that both greedy algorithms are fast — pick max or min at each stage — but neither is guaranteed optimal. Finding the optimum is NP-hard in general (trying all 3⁹ assignments here).
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="1">
+<p class="q">Why is a makespan of 34 clearly optimal here?</p>
+<ol><li>Total work is 102 min; with 3 processors someone works ≥ 102/3 = 34</li><li>Because 34 &lt; 35</li><li>Because the longest job is 20</li><li>Because exhaustive search found it</li></ol>
+<p class="explain">A lower bound that is achieved proves optimality. There are several optimal schedules, e.g. {20, 14}, {18, 11, 5}, {15, 10, 6, 3}.</p>
+</div>
+
+Note:
+⏱ 0:42–0:45. Lower bounds are a recurring technique — we'll use them heavily in branch & bound.
+
+---
+
+<!-- .slide: class="divider" -->
+## Huffman codes
+
+How many bits do we need to store a text?
+
+<div class="cols">
+<div class="card"><h4>Fixed-length</h4><p>ASCII: 8 bits/char (256 symbols)<br>Unicode (UCS-2): 16 bits/char</p></div>
+<div class="card"><h4>Variable-length</h4><p>Short codes for frequent symbols, long codes for rare ones → shorter on average.</p></div>
+</div>
+
+Note:
+⏱ 0:45–0:50. Huffman (1952) — invented as a term paper by an MIT student who preferred that to the final exam.
+
+---
+
+## Where does one symbol end?
+
+<div class="cols">
+<div>
+
+<p>With A=00, B=01, C=10, D=11 the bits <code>0010110111</code> split every 2 bits: <b>A C D B D</b>.</p>
+<p class="fragment">With variable length we need the <b>prefix property</b>: no code is the prefix of another.</p>
+
+</div>
+<div class="card fragment">
+<h4>A prefix code</h4>
+<p>P = 000 · Q = 11 · R = 01 · S = 001 · T = 10</p>
+</div>
+</div>
+
+<div class="quiz fragment" data-answer="3">
+<p class="q">Decode <code>01001101100010</code> with the prefix code on the right.</p>
+<ol><li>RQTSPT</li><li>PQRST</li><li>RSTQPT</li><li>It's ambiguous</li></ol>
+<p class="explain">01 → R, 001 → S, 10 → T, 11 → Q, 000 → P, 10 → T. With a prefix code you decode symbol by symbol, no separators, no ambiguity.</p>
+</div>
+
+Note:
+⏱ 0:50–0:55. Without spaces the string is 01001101100010 — let them decode it in pairs.
+
+---
+
+## Huffman's algorithm
+
+1. Count the frequency of each symbol.
+2. Start with a **forest** of one-node trees (symbol, frequency). <!-- .element: class="fragment" -->
+3. Repeat: take the **two trees with the smallest frequency**, join them under a new root whose weight is the sum. <!-- .element: class="fragment" -->
+4. When one tree remains: left edge = 0, right edge = 1. Each symbol's code is its root-to-leaf path. <!-- .element: class="fragment" -->
+
+<p class="fragment small">The greedy choice: <b>merge the two rarest symbols</b> — they will be deepest in the tree.</p>
+
+Note:
+⏱ 0:55–0:58. Implementation: a min-priority queue → O(n log n) for n distinct symbols.
+
+---
+
+## "this is his message"
+
+<div class="w" data-widget="huffman" data-text="this is his message" data-h="300"></div>
+
+Note:
+⏱ 0:58–1:08. Frequencies: s=5, i=3, space=3, h=2, e=2, t=1, m=1, a=1, g=1 (19 symbols). The final message uses 56 bits vs 4 × 19 = 76 with a fixed 4-bit code and 152 in ASCII. Ties can be broken in different ways: codes may differ from the old slides (S=11, E=010, …) but the total length is always 56.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="predict" data-answer="56" data-tol="0">
+<p class="q">Total encoded length of "this is his message" (bits)?</p>
+<p class="explain">Σ frequency × code length = 5·2 + 3·3 + 3·3 + 2·3 + 2·3 + 4·(1·4) = <b>56 bits</b>. It's also the sum of the weights of all internal nodes: 2 + 2 + 4 + 4 + 6 + 8 + 11 + 19 = 56.</p>
+</div>
+
+Note:
+⏱ 1:08–1:12. The internal-node trick is a nice check for the hand exercise.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="2">
+<p class="q">In a Huffman tree, the two least frequent symbols…</p>
+<ol><li>get the shortest codes</li><li>are siblings at the deepest level</li><li>are always on the left</li><li>are merged last</li></ol>
+<p class="explain">They are merged first, so they end up as siblings at maximum depth. That's the greedy-choice property used in the optimality proof.</p>
+</div>
+
+Note:
+⏱ 1:12–1:15.
+
+---
+
+<!-- .slide: class="activity" -->
+## Build your own
+
+Build the Huffman tree for **ABRACADABRA** by hand.
+
+1. Frequencies? 2. Merge order? 3. Codes? 4. Total bits?
+
+<div class="timer" data-seconds="360"></div>
+
+<details><summary>Check</summary>
+A=5, B=2, R=2, C=1, D=1. Merges: C+D=2, then 2+2=4, then 2+4=6, then 5+6=11. Total = 2 + 4 + 6 + 11 = <b>23 bits</b> (vs 33 with 3 bits/char, 88 in ASCII). A gets a 1-bit code. Verify by typing the word in the widget on the previous slide.
+</details>
+
+Note:
+⏱ 1:15–1:25.
+
+---
+
+## Other greedy classics
+
+<div class="cols">
+<div class="card"><h4>Minimum spanning tree (Prim)</h4><p>Start anywhere; repeatedly add the <b>cheapest edge</b> from the tree to a new node. <span class="ok">Always optimal.</span></p></div>
+<div class="card"><h4>Traveling salesman (nearest city)</h4><p>Always go to the nearest unvisited city. <span class="bad">Not optimal</span> — we saw it fail in session 02.</p></div>
+</div>
+
+<p class="small">Also greedy: <b>Dijkstra</b> (closest unknown node), <b>Kruskal</b> (lowest-cost remaining edge). Covered in Unit 3 — Graphs.</p>
+
+Note:
+⏱ 1:25–1:28. Why is Prim correct when nearest-neighbor TSP isn't? Cut property: the cheapest edge crossing any cut belongs to some MST. TSP has no such property.
+
+---
+
+## Cost of a greedy algorithm
+
+About **n choices** for a problem of size n → O(n · cost of one choice).
+
+| Problem | One choice | Total |
+|---|---|---|
+| Coin counting (k coin types) | O(k) = O(1) | Θ(n) |
+| Huffman | heap: O(log n) | O(n log n) |
+| Prim (binary heap) | O(log V) per edge | O(E log V) |
+
+Note:
+⏱ 1:28–1:33.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+## Exit ticket
+
+<div class="quiz" data-answer="4">
+<p class="q">Which problem does a greedy algorithm solve <b>optimally</b>?</p>
+<ol><li>Change-making with coins {1, 7, 10}</li><li>Minimizing makespan on 3 processors</li><li>TSP with nearest neighbor</li><li>Optimal prefix code (Huffman)</li></ol>
+<p class="explain">Huffman is provably optimal among prefix codes. The other three have counterexamples you saw today.</p>
+</div>
+
+Note:
+⏱ 1:33–1:40. Sticky note: "one problem where greedy fails, and why". Reading: Levitin ch. 9 (9.1 Prim, 9.4 Huffman); Kleinberg & Tardos ch. 4.1 (interval scheduling).
+
+---
+
+## Takeaways
+
+- Greedy: **feasible**, **locally optimal**, **irrevocable** choices.
+- Fast and simple; correct **only with a proof** (greedy-choice + optimal substructure).
+- Fails on: non-canonical coins, makespan scheduling, TSP.
+- Optimal on: Huffman, MST (Prim/Kruskal), Dijkstra, interval scheduling.
+
+<p class="muted small">Next: dynamic programming — how to get the coin problem right.</p>
+</textarea>
+</section>
+</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/markdown/markdown.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/math/math.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/zoom/zoom.js"></script>
+<script src="../assets/js/widgets.js"></script>
+<script src="../assets/js/course.js"></script>
+<script>Course.init();</script>
+</body>
+</html>

@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dynamic Programming · TC2038</title>
+<meta name="description" content="TC2038 Analysis and Design of Advanced Algorithms — Dynamic Programming">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<link rel="stylesheet" href="../assets/css/course.css">
+</head>
+<body>
+<div class="reveal">
+<div class="slides">
+<!--
+  SLIDES ARE WRITTEN IN MARKDOWN BELOW
+  ---   new horizontal slide        --    new vertical slide (press ↓)
+  Note: everything after this line is a speaker note (press S)
+  Keep HTML blocks (quizzes, widgets) flush-left and without blank lines inside.
+-->
+<section data-markdown data-separator="^---$" data-separator-vertical="^--$" data-separator-notes="^Note:">
+<textarea data-template>
+<!-- .slide: class="title" -->
+<span class="kicker">TC2038 · Session 06</span>
+
+# Dynamic programming
+
+### Solve each subproblem once. Write it down. Reuse it.
+
+<p class="byline">Dr. Gildardo Sánchez Ante · Tecnológico de Monterrey</p>
+
+Note:
+⏱ 0:00–0:02. Today: the DP recipe, applied three times — Fibonacci, coin-row, change-making (fixing the greedy failure from last session).
+
+---
+
+<!-- .slide: class="activity" -->
+## Warm-up
+
+```cpp
+long long fib(int n) { return n < 2 ? n : fib(n - 1) + fib(n - 2); }
+```
+
+<div class="quiz" data-answer="4">
+<p class="q">Roughly how many calls does <code>fib(40)</code> make?</p>
+<ol><li>40</li><li>1,600</li><li>about 100,000</li><li>about 330 million</li></ol>
+<p class="explain">Exactly 2·F(41) − 1 = <b>331,160,281</b> calls, to compute F(40) = 102,334,155. With a table: 79 calls.</p>
+</div>
+
+Note:
+⏱ 0:02–0:06. If you have a laptop at hand, run it live in Python: fib(35) already takes seconds.
+
+---
+
+## Today
+
+<ul class="agenda">
+<li><span class="t">0:06</span> What DP is (and why "programming")</li>
+<li><span class="t">0:12</span> Fibonacci: top-down and bottom-up</li>
+<li><span class="t">0:28</span> <b>Checkpoint 1</b></li>
+<li><span class="t">0:33</span> Coin-row problem</li>
+<li><span class="t">0:55</span> <b>Checkpoint 2</b></li>
+<li><span class="t">1:00</span> Change-making, done right</li>
+<li><span class="t">1:20</span> Your turn: d = {1, 5, 6, 9}</li>
+<li><span class="t">1:33</span> <b>Exit ticket</b></li>
+</ul>
+
+---
+
+## Dynamic programming
+
+- Invented by **Richard Bellman** (1950s) for optimization problems.
+- "Programming" = filling a **table** (as in "linear programming"), not writing code. <!-- .element: class="fragment" -->
+- The problem breaks into smaller subproblems that **overlap**. <!-- .element: class="fragment" -->
+- Plain recursion re-solves them over and over → DP **stores** each answer once. <!-- .element: class="fragment" -->
+
+Note:
+⏱ 0:06–0:09. Bellman chose the name partly to sound impressive to funding officials who disliked the word "research" (his autobiography).
+
+---
+
+## The recipe
+
+<div class="cols">
+<div>
+
+1. Define the subproblem: **F(i) = …** in words.
+2. Write a **recurrence** relating F(i) to smaller F's.
+3. Set the **initial conditions**.
+4. Fill the **table** in an order where dependencies are ready.
+5. Extract the answer (and **trace back** the choices).
+
+</div>
+<div class="card fragment">
+<h4>Two properties to check</h4>
+<p><b>Optimal substructure:</b> an optimal solution is built from optimal solutions of subproblems.</p>
+<p><b>Overlapping subproblems:</b> the same subproblems appear many times.</p>
+</div>
+</div>
+
+Note:
+⏱ 0:09–0:12. Write the 5 steps on the board and leave them there for the rest of the session.
+
+---
+
+## Fibonacci: the overlap
+
+$$F(n) = F(n-1) + F(n-2), \quad F(0) = 0, \  F(1) = 1$$
+
+<div class="w" data-widget="fibtree" data-n="6" data-mode="naive" data-h="240"></div>
+
+Note:
+⏱ 0:12–0:17. F(n) is expressed in terms of smaller AND overlapping subproblems F(n−1), F(n−2). Toggle "With memo table" at the end.
+
+---
+
+## Bottom-up: fill a 1-D table
+
+<div class="cols">
+<div>
+
+```cpp [2|3|4-5|6]
+long long fib(int n) {
+    vector<long long> F(n + 1);
+    F[0] = 0; if (n > 0) F[1] = 1;
+    for (int i = 2; i <= n; i++)
+        F[i] = F[i - 1] + F[i - 2];
+    return F[n];
+}
+```
+
+</div>
+<div>
+
+| i | 0 | 1 | 2 | 3 | 4 | 5 | 6 |
+|---|---|---|---|---|---|---|---|
+| F | 0 | 1 | 1 | 2 | 3 | 5 | 8 |
+
+<p class="small">Time <b>Θ(n)</b> · space <b>Θ(n)</b> — or Θ(1) keeping only the last two values.</p>
+
+</div>
+</div>
+
+Note:
+⏱ 0:17–0:24. Fill the n + 1 consecutive values starting from the initial conditions, using the recurrence as the rule.
+
+---
+
+## Top-down vs bottom-up
+
+<div class="cols">
+<div class="card"><h4>Top-down (memoization)</h4><p>Keep the recursion; before computing, look in the table.</p><p class="muted">+ only solves needed subproblems<br>− recursion overhead / stack depth</p></div>
+<div class="card"><h4>Bottom-up (tabulation)</h4><p>Start at the base cases and go up explicitly.</p><p class="muted">+ no recursion, easy to save space<br>− must find a valid fill order</p></div>
+</div>
+
+Note:
+⏱ 0:24–0:28.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="3">
+<p class="q">Why does memoized <code>fib(n)</code> make only 2n − 1 calls?</p>
+<ol><li>Because it uses a loop</li><li>Because F(n) grows exponentially</li><li>Each F(k) is computed once; every later call to it is a table hit that doesn't recurse</li><li>Because the compiler optimizes the recursion</li></ol>
+<p class="explain">n + 1 values are computed; the other calls are O(1) lookups.</p>
+</div>
+
+Note:
+⏱ 0:28–0:30.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="2">
+<p class="q">Which problem does <b>not</b> benefit from DP?</p>
+<ol><li>Fibonacci numbers</li><li>Merge sort</li><li>Shortest paths between all pairs (Floyd)</li><li>Longest common subsequence</li></ol>
+<p class="explain">Merge sort's halves are disjoint — no overlapping subproblems, nothing to reuse.</p>
+</div>
+
+Note:
+⏱ 0:30–0:33. Other classic DP: binomial coefficients, LCS, Warshall (transitive closure), Floyd (all-pairs shortest paths), optimal BST, knapsack, TSP (Held–Karp).
+
+---
+
+<!-- .slide: class="divider" -->
+## The coin-row problem
+
+A row of n coins with values c₁, c₂, …, cₙ (positive, not necessarily distinct).
+
+Pick up the **maximum amount** such that **no two adjacent coins** are picked.
+
+<div class="cells" style="justify-content:center;margin-top:1em"><div class="cell">5</div><div class="cell">1</div><div class="cell">2</div><div class="cell">10</div><div class="cell">6</div><div class="cell">2</div></div>
+
+Note:
+⏱ 0:33–0:36. Levitin ch. 8.1. Ask them to find the best by hand (1 minute) — most will find 17 by trial and error. Then: how would you guarantee the best for 1000 coins?
+
+---
+
+## Deriving the recurrence
+
+<p>F(n) = the maximum amount from the first n coins.</p>
+
+<div class="cols">
+<div class="card fragment"><h4>Solutions that take coin n</h4><p>cannot take coin n − 1 → best is <b>cₙ + F(n − 2)</b></p></div>
+<div class="card fragment"><h4>Solutions that skip coin n</h4><p>best is <b>F(n − 1)</b></p></div>
+</div>
+
+<div class="fragment">
+
+$$F(n) = \max\lbrace c_n + F(n-2),\ F(n-1) \rbrace,\quad F(0) = 0,\ F(1) = c_1$$
+
+</div>
+
+Note:
+⏱ 0:36–0:42. Partition all allowed selections into two groups: with the last coin and without it. This "last decision" reasoning is the core DP move.
+
+---
+
+## Filling the table
+
+<div class="w" data-widget="coinrow" data-input="5,1,2,10,6,2"></div>
+
+Note:
+⏱ 0:42–0:50. Before each "Next", ask the class to say the value aloud. The orange cells are the two subproblems being compared. The last frame traces back the chosen coins: c1 = 5, c4 = 10, c6 = 2 → 17. Time Θ(n), space Θ(n).
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="predict" data-answer="17" data-tol="0">
+<p class="q">F(6) for coins 5, 1, 2, 10, 6, 2?</p>
+<p class="explain">F = 0, 5, 5, 7, 15, 15, 17 → <b>17</b>.</p>
+</div>
+
+<div class="quiz" data-answer="1">
+<p class="q">How do we know which coins were picked?</p>
+<ol><li>Trace back: at each i, check whether cᵢ + F(i−2) ≥ F(i−1)</li><li>Take the largest coins</li><li>Store every subset in the table</li><li>We can't; DP only gives the value</li></ol>
+<p class="explain">Trace back from F(n) re-evaluating which branch of the max won. Θ(n) extra time.</p>
+</div>
+
+Note:
+⏱ 0:50–0:55. Load another instance in the widget, e.g. 3, 10, 3, 1, 2 → 12.
+
+---
+
+<!-- .slide: class="divider" -->
+## Change-making, done right
+
+Give change for amount n with the **minimum number of coins** of denominations d₁ < d₂ < … < dₘ, d₁ = 1, unlimited supply.
+
+<p class="small muted">Greedy failed for {1, 3, 4} and n = 6 (4 + 1 + 1). Let's fix it.</p>
+
+Note:
+⏱ 0:55–1:00.
+
+---
+
+## The recurrence
+
+F(n) = minimum number of coins that add up to n.
+
+<p class="fragment">Amount n is reached by adding <b>one coin dⱼ</b> to amount n − dⱼ. Try every coin, keep the best:</p>
+
+<div class="fragment">
+
+$$F(n) = \min_{j:\ n \ge d_j} \lbrace F(n - d_j) \rbrace + 1, \qquad F(0) = 0$$
+
+</div>
+
+<p class="fragment small">Table of size n + 1, m options per cell → <b>Θ(n·m)</b> time, Θ(n) space.</p>
+
+Note:
+⏱ 1:00–1:05. Since "+1" is constant, find the smallest F(n − dⱼ) first and add 1.
+
+---
+
+## n = 6, d = {1, 3, 4}
+
+<div class="w" data-widget="changedp" data-coins="1,3,4" data-amount="6"></div>
+
+Note:
+⏱ 1:05–1:15. Orange = the candidate F(n − dⱼ) being checked. The final trace back gives 3 + 3. Compare with greedy's 4 + 1 + 1.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="2">
+<p class="q">The change-making DP table for n = 1,000 and 5 coin types needs about…</p>
+<ol><li>5 operations</li><li>5,000 operations</li><li>5¹⁰⁰⁰ operations</li><li>1,000! operations</li></ol>
+<p class="explain">n · m = 1000 · 5. Careful: this is <i>pseudo-polynomial</i> — polynomial in the value n, exponential in the number of bits of n.</p>
+</div>
+
+Note:
+⏱ 1:15–1:20.
+
+---
+
+<!-- .slide: class="activity" -->
+## Your turn
+
+Coins **d = {1, 5, 6, 9}**, amount **n = 11**.
+
+1. What does greedy give?
+2. Fill F(0..11) by hand.
+3. Trace back the optimal coins.
+
+<div class="timer" data-seconds="420"></div>
+
+<details><summary>Check</summary>
+Greedy: 9 + 1 + 1 = 3 coins. DP: F = 0,1,2,3,4,1,1,2,3,1,2,<b>2</b> → 5 + 6. Verify by loading d = 1,5,6,9 and n = 11 in the widget on the previous slide.
+</details>
+
+Note:
+⏱ 1:20–1:30.
+
+---
+
+## When to use dynamic programming
+
+- The problem has **optimal substructure** and **overlapping subproblems**.
+- You can write the answer as a **recurrence over smaller instances**.
+- The number of **distinct** subproblems is polynomial.
+
+<p class="small">Coming in the course: LCS, optimal BST (Gilbert–Moore), Floyd, 0/1 knapsack, TSP (Held–Karp).</p>
+
+Note:
+⏱ 1:30–1:33.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+## Exit ticket
+
+<div class="quiz" data-answer="3">
+<p class="q">Coin-row: why can't we just pick the largest coins greedily?</p>
+<ol><li>Because coins may repeat</li><li>Because the table would be too big</li><li>Taking a large coin forbids its neighbors, whose sum may be larger</li><li>We can — greedy is optimal here</li></ol>
+<p class="explain">Example 2, 3, 2: greedy takes 3 (total 3); optimal takes 2 + 2 = 4.</p>
+</div>
+
+Note:
+⏱ 1:33–1:40. Sticky note: write the recurrence for "number of ways to make change for n" (counting, not minimizing). Reading: Levitin ch. 8.1.
+
+---
+
+## Takeaways
+
+- DP = recurrence + table: **each subproblem once**.
+- Recipe: define F · recurrence · base cases · fill order · trace back.
+- Fibonacci Θ(n), coin-row Θ(n), change-making Θ(n·m).
+- DP fixes cases where greedy fails — at the cost of time and memory.
+
+<p class="muted small">Next: branch and bound.</p>
+</textarea>
+</section>
+</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/markdown/markdown.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/math/math.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/zoom/zoom.js"></script>
+<script src="../assets/js/widgets.js"></script>
+<script src="../assets/js/course.js"></script>
+<script>Course.init();</script>
+</body>
+</html>

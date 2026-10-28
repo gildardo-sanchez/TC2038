@@ -1,0 +1,517 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Algorithms · TC2038</title>
+<meta name="description" content="TC2038 Analysis and Design of Advanced Algorithms — Algorithms">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<link rel="stylesheet" href="../assets/css/course.css">
+</head>
+<body>
+<div class="reveal">
+<div class="slides">
+<!--
+  SLIDES ARE WRITTEN IN MARKDOWN BELOW
+  ---   new horizontal slide        --    new vertical slide (press ↓)
+  Note: everything after this line is a speaker note (press S)
+  Keep HTML blocks (quizzes, widgets) flush-left and without blank lines inside.
+-->
+<section data-markdown data-separator="^---$" data-separator-vertical="^--$" data-separator-notes="^Note:">
+<textarea data-template>
+<!-- .slide: class="title" -->
+<span class="kicker">TC2038 · Session 02</span>
+
+# Algorithms
+
+### Problems, instances, correctness — and how to break a heuristic
+
+<p class="byline">Dr. Gildardo Sánchez Ante · Tecnológico de Monterrey<br><span class="tiny">Based on material by Prof. S. Skiena (The Algorithm Design Manual)</span></p>
+
+Note:
+⏱ 0:00–0:03. Welcome. Today's promise: by the end of the session they will be able to *break* a plausible-looking algorithm with a counterexample. Tell them there will be a checkpoint every ~15 minutes and that wrong answers are useful data, not failure.
+
+Presenter keys: S = speaker view, . / , = step an animation, 1–4 = answer the quiz on screen, D = dark mode, F = full screen, ESC = overview.
+
+---
+
+## Today
+
+<ul class="agenda">
+<li><span class="t">0:03</span> Warm-up: program a robot arm</li>
+<li><span class="t">0:10</span> Algorithm · problem · instance</li>
+<li><span class="t">0:22</span> <b>Checkpoint 1</b></li>
+<li><span class="t">0:27</span> Correct <i>and</i> efficient</li>
+<li><span class="t">0:35</span> Robot tour: three candidate algorithms</li>
+<li><span class="t">1:00</span> <b>Checkpoint 2</b></li>
+<li><span class="t">1:05</span> Hunting counterexamples · movie scheduling</li>
+<li><span class="t">1:22</span> Induction & recursion</li>
+<li><span class="t">1:33</span> <b>Exit ticket</b></li>
+</ul>
+
+Note:
+⏱ 0:03. Do not read the agenda — just point at the three checkpoints so students know when they will be asked to prove they followed.
+
+---
+
+<!-- .slide: class="activity" -->
+## Warm-up: program the robot
+
+A robot arm must solder **every contact point** on a circuit board, then return home.
+
+Travel time is money. **In which order should it visit the points?**
+
+<div class="w" data-widget="tsp" data-preset="random" data-algo="nn" data-h="200"></div>
+
+<div class="timer" data-seconds="180"></div>
+
+Note:
+⏱ 0:03–0:10. Click "Random 8" a couple of times. Ask pairs to write a one-sentence rule for choosing the order. Collect 3–4 ideas on the board WITHOUT judging them. Typical answers: "go to the closest point", "connect the closest pairs", "sweep left to right". We will test each of them later today — keep the list visible.
+
+---
+
+## What is an algorithm?
+
+> Algorithms are the **ideas** behind computer programs.
+
+- The algorithm is what stays the same whether the program runs on a supercomputer in New York or on a phone in Kathmandu, in assembly or in Python. <!-- .element: class="fragment" -->
+- To be interesting, an algorithm must solve a **general, well-specified problem**. <!-- .element: class="fragment" -->
+- A problem is specified by the **set of instances** it must work on and the **properties the output** must have. <!-- .element: class="fragment" -->
+
+Note:
+⏱ 0:10–0:13. Emphasize "general". A program that only sorts [5,3,8,1] is not an algorithm for sorting.
+
+---
+
+<!-- .slide: data-auto-animate -->
+## Problem
+
+<div class="cols">
+<div class="card" data-id="prob"><h4>Problem: Sorting</h4><p><b>Input</b> a sequence of n numbers a₁ … aₙ</p><p><b>Output</b> a permutation with a₁ ≤ a₂ ≤ … ≤ aₙ</p></div>
+<div></div>
+</div>
+
+A problem is **independent of specific inputs**. It defines input, output, and the relationship between them.
+
+Note:
+⏱ 0:13–0:16. Input + output + relationship. The relationship is the part students forget: "output is a permutation of the input AND non-decreasing".
+
+---
+
+<!-- .slide: data-auto-animate -->
+## Problem → instance
+
+<div class="cols">
+<div class="card" data-id="prob"><h4>Problem: Sorting</h4><p><b>Input</b> a sequence of n numbers a₁ … aₙ</p><p><b>Output</b> a permutation with a₁ ≤ a₂ ≤ … ≤ aₙ</p></div>
+<div class="card" data-id="inst" style="border-color:var(--hot)"><h4>Instance</h4><p><b>Input</b> [5, 3, 8, 1]</p><p><b>Output</b> [1, 3, 5, 8]</p></div>
+</div>
+
+An **instance** replaces the abstract input with concrete data. An algorithm must solve **every** instance.
+
+Note:
+⏱ 0:16–0:18. Auto-animate moves the card. Ask: "Is 'sort the class list by student ID' a problem or an instance?" (It is closer to a problem: the actual list today is the instance.)
+
+---
+
+## Ways to express an algorithm
+
+<div class="cols3">
+<div class="card fragment"><h4>English</h4><p>"Repeatedly go to the closest unvisited point."</p><p class="muted">easy to write · ambiguous</p></div>
+<div class="card fragment"><h4>Pseudocode</h4><p><code>while unvisited ≠ ∅: …</code></p><p class="muted">precise enough to reason</p></div>
+<div class="card fragment"><h4>Code</h4><p>C++, Python, Java…</p><p class="muted">exact · noisy for ideas</p></div>
+</div>
+
+<p class="fragment">Precision ↑ &nbsp;·&nbsp; ease of expression ↓. In this course: <b>idea in English first, pseudocode for the tricky details.</b></p>
+
+Note:
+⏱ 0:18–0:22. A good habit: if you can't explain it in English in two sentences, you don't understand it yet.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="3">
+<p class="q">Which statement describes an <b>instance</b> (not a problem)?</p>
+<ol>
+<li>Given a graph, find the shortest path between two vertices.</li>
+<li>Given n numbers, return them in non-decreasing order.</li>
+<li>Find the shortest route from Monterrey to Saltillo on today's road map.</li>
+<li>Given a text and a pattern, find all occurrences of the pattern.</li>
+</ol>
+<p class="explain">Option C fixes the data (a concrete map, two concrete cities). The other three describe <b>all</b> possible inputs.</p>
+</div>
+
+Note:
+⏱ 0:22–0:24. Ask for a show of hands for A/B/C/D before clicking (or use the 1–4 keys). If many choose A, stress "a graph" = any graph.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="2">
+<p class="q">A sorting algorithm works on all your tests. Which input are you <b>most</b> likely to have forgotten?</p>
+<ol>
+<li>[9, 2, 7, 4]</li>
+<li>[3, 3, 1, 3] — repeated elements</li>
+<li>[100, 50, 25]</li>
+<li>[8, 1, 6, 5, 2]</li>
+</ol>
+<p class="explain">Correctness means <b>every legal instance</b>: already-sorted input, repeated elements, empty or single-element arrays… Duplicates break many "≤ vs &lt;" implementations.</p>
+</div>
+
+Note:
+⏱ 0:24–0:27. Transition: "Correct" is only half the story. Next: efficient.
+
+---
+
+## Correct *and* efficient
+
+We want algorithms that are
+
+- **Correct** — the desired output for *all* legal instances.
+- **Efficient** — reasonable resources as instances grow.
+
+<div class="w" data-widget="race"></div>
+
+<p class="small muted">A faster algorithm on a slower computer always wins for large enough n — and n does not need to be that large.</p>
+
+Note:
+⏱ 0:27–0:35. Move the slider from 10² to 10⁹. Ask them to predict the crossover before you move it. At n = 10⁷ the 1000× slower machine finishes in ~20 minutes vs ~5.5 hours. (Example from CLRS ch. 1.)
+
+---
+
+<!-- .slide: class="divider" -->
+## Robot tour optimization
+
+Find the shortest closed tour that visits every point.
+
+<p class="small">This is the <b>Traveling Salesman Problem</b> in disguise.</p>
+
+Note:
+⏱ 0:35. Go back to the ideas students wrote during the warm-up. "Let's test your algorithms."
+
+---
+
+## Idea 1 · Nearest neighbor
+
+```text [1-2|3-6|7]
+NearestNeighbor(P):
+    pick a start point p0;  i = 0
+    while there are unvisited points:
+        i = i + 1
+        pi = closest unvisited point to p(i-1)
+        visit pi
+    return to p0 from p(n-1)
+```
+
+Simple, fast, intuitive… <span class="fragment hot">is it correct?</span>
+
+Note:
+⏱ 0:37–0:40. Step the highlighted lines with the arrow key. Before revealing the question, ask them to vote: correct / not correct.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="2">
+<p class="q">The points lie on a line at −21, −5, −1, 0, 1, 3, 11 and we start at 0. What does Nearest Neighbor do?</p>
+<ol>
+<li>Walks left to −21, then right to 11 — optimal.</li>
+<li>Zig-zags left and right across 0, again and again.</li>
+<li>Gets stuck: it cannot decide between −1 and 1.</li>
+<li>Visits the points in sorted order.</li>
+</ol>
+<p class="explain">From 0 the closest points alternate sides: 1, −1, 3, −5, 11, −21… each jump is short, but the tour keeps crossing the start. Let's watch it.</p>
+</div>
+
+Note:
+⏱ 0:40–0:43. Let them argue a minute. Then go to the animation.
+
+---
+
+## Nearest neighbor on a line
+
+<div class="w" data-widget="tsp" data-preset="line" data-algo="nn"></div>
+
+Note:
+⏱ 0:43–0:47. Play the NN animation, then click "Exhaustive (optimal)" to compare: 72 vs 64 here, and the gap can be made arbitrarily bad with other placements. Key message: a short step now can force long steps later. This is our first preview of why "greedy" is dangerous.
+
+---
+
+## Idea 2 · Closest pair
+
+```text [1-2|3-5|6]
+ClosestPair(P):
+    each point starts as its own path
+    repeat n − 1 times:
+        connect the closest pair of endpoints (s, t)
+        from different paths  (no cycle, no 3-way branch)
+    connect the two ends of the final path
+```
+
+Fixes the line example… <span class="fragment">but try this one 👇</span>
+
+Note:
+⏱ 0:47–0:50. Closest pair solves the line example correctly. Ask: "Is it correct now?" Most will say "probably". Good — that is exactly the trap.
+
+---
+
+## Closest pair can be wrong too
+
+<div class="w" data-widget="tsp" data-preset="clusters" data-algo="cp"></div>
+
+Note:
+⏱ 0:50–0:54. Play closest pair, then switch to optimal: ~31% longer. Then invite one student to the computer: "Click to add points and try to break nearest neighbor." Use "Clear (click to add)".
+
+---
+
+## Idea 3 · Exhaustive search
+
+```text
+OptimalTSP(P):
+    d = ∞
+    for each of the n! permutations Pi of P:
+        if cost(Pi) ≤ d:  d = cost(Pi);  Pmin = Pi
+    return Pmin
+```
+
+<div class="predict" data-answer="3628800" data-tol="0">
+<p class="q">With 11 points and a fixed start, how many different tours must be checked? ( (n−1)! )</p>
+<p class="explain">10! = 3,628,800. With 20 points it is 19! ≈ 1.2 × 10¹⁷ — at 10⁹ tours per second that is almost <b>4 years</b>.</p>
+</div>
+
+Note:
+⏱ 0:54–0:58. Exhaustive search is correct (it checks everything) but useless beyond 10–20 points. No efficient correct algorithm is known for TSP — we will come back to this when we talk about NP-hardness and branch & bound.
+
+---
+
+## The lesson
+
+| Algorithm | Correct? | Fast? |
+|---|---|---|
+| Nearest neighbor | ✗ | ✓ |
+| Closest pair | ✗ | ✓ |
+| Exhaustive search | ✓ | ✗ (n!) |
+
+<p class="callout"><b>Reasonable-looking ≠ correct.</b> An algorithm is correct only when we can <em>prove</em> it, and incorrect as soon as we find <em>one</em> counterexample.</p>
+
+Note:
+⏱ 0:58–1:00. Heuristic = a procedure that usually does a good job with no guarantee. Algorithm = always correct.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="4">
+<p class="q">You tested your new TSP heuristic on 500 random instances and it always matched the optimum. What can you conclude?</p>
+<ol>
+<li>It is correct.</li>
+<li>It is correct for n ≤ 500.</li>
+<li>It is correct with probability 99.8%.</li>
+<li>Nothing about correctness — only a proof can show that.</li>
+</ol>
+<p class="explain">Random instances rarely contain the nasty structure (ties, extremes, symmetric layouts) that breaks a heuristic. Absence of evidence is not evidence of correctness.</p>
+</div>
+
+Note:
+⏱ 1:00–1:02.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="1">
+<p class="q">Why do we say "find the <b>shortest</b> tour" and not "find the <b>best</b> tour"?</p>
+<ol>
+<li>"Best" is not precisely specified, so no algorithm can be proven correct for it.</li>
+<li>"Shortest" is easier to compute.</li>
+<li>"Best" would require exhaustive search.</li>
+<li>There is no difference.</li>
+</ol>
+<p class="explain">A provably correct algorithm needs a carefully specified problem. "Shortest" has an exact meaning; "best" does not.</p>
+</div>
+
+Note:
+⏱ 1:02–1:05.
+
+---
+
+## How to find a counterexample
+
+<div class="cols">
+<div>
+
+- **Think small.** 2, 3, 4 elements — failures are usually tiny.
+- **Think exhaustively.** List all small cases.
+- **Hunt for ties** in the decision rule ("closest" — what if two are equally close?).
+
+</div>
+<div>
+
+- **Seek extremes:** huge vs tiny, clustered vs spread out.
+- **Attack the weakness:** if the rule is "nearest", build a case where nearest now is expensive later.
+
+</div>
+</div>
+
+Note:
+⏱ 1:05–1:08. These are Skiena's heuristics for counterexample hunting. We'll practice them right now.
+
+---
+
+<!-- .slide: class="activity" -->
+## Movie scheduling
+
+You are an actor. Offers arrive as intervals [start, end] of filming. You can't film two overlapping movies. **Maximize the number of movies you accept.**
+
+<div class="cols">
+<div class="card"><h4>Candidate rules</h4><p>A · <b>Earliest start</b> first</p><p>B · <b>Shortest movie</b> first</p><p>C · <b>Earliest finish</b> first</p></div>
+<div><p>In pairs, find a counterexample for each rule that fails.</p><div class="timer" data-seconds="300"></div></div>
+</div>
+
+Note:
+⏱ 1:08–1:15. Give them 5 minutes. Walk around. Expected:
+A fails: one long movie starting first blocks many short ones.
+B fails: a short movie overlapping two longer, non-overlapping movies.
+C is correct (classic interval scheduling; exchange argument — we'll prove it in the greedy session).
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="2">
+<p class="q">Intervals: [1,10], [2,3], [4,5], [6,7]. Which rule gets the <b>wrong</b> answer?</p>
+<ol>
+<li>Shortest movie first</li>
+<li>Earliest start first</li>
+<li>Earliest finish first</li>
+<li>All of them are optimal here</li>
+</ol>
+<p class="explain">Earliest start picks [1,10] and blocks everything else → 1 movie. Optimal is 3: [2,3], [4,5], [6,7].</p>
+</div>
+
+Note:
+⏱ 1:15–1:18.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="3">
+<p class="q">Intervals: [1,5], [4,7], [6,10]. What does <b>shortest movie first</b> return?</p>
+<ol>
+<li>3 movies</li>
+<li>2 movies: [1,5] and [6,10]</li>
+<li>1 movie: [4,7]</li>
+<li>0 movies</li>
+</ol>
+<p class="explain">[4,7] is the shortest (length 3) and overlaps both others → 1 movie. Optimal is 2. One counterexample is enough to kill rule B.</p>
+</div>
+
+Note:
+⏱ 1:18–1:22. Tease: rule C (earliest finish) survives every attack. Why? We will prove it with an exchange argument in the greedy session.
+
+---
+
+## Proving correctness: induction ≡ recursion
+
+<div class="cols">
+<div>
+
+**Induction**
+1. Basis: true for n = 1
+2. Hypothesis: true for n − 1
+3. Step: then true for n
+
+</div>
+<div>
+
+**Recursion**
+1. Base case
+2. Recursive call on a smaller input
+3. Combine into the answer
+
+</div>
+</div>
+
+<p class="fragment callout">Failing to find a counterexample does <b>not</b> make an algorithm "obviously" correct. Recursive algorithms are proved with induction.</p>
+
+Note:
+⏱ 1:22–1:27.
+
+---
+
+## Example: max of an array
+
+```cpp
+int maxOf(const vector<int>& a, int n) {      // max of a[0..n-1]
+    if (n == 1) return a[0];                 // basis
+    int m = maxOf(a, n - 1);                 // hypothesis: m = max of a[0..n-2]
+    return (a[n - 1] > m) ? a[n - 1] : m;    // step
+}
+```
+
+<details><summary>Proof sketch</summary>
+<b>Basis:</b> n = 1, the only element is the max. <b>Hypothesis:</b> maxOf(a, n−1) returns the max of the first n−1 elements. <b>Step:</b> the max of n elements is either the last element or the max of the first n−1; the code returns the larger of the two. ∎
+</details>
+
+Note:
+⏱ 1:27–1:33. Open the details box only after asking them to say the proof out loud with their partner (1 minute).
+
+---
+
+<!-- .slide: class="checkpoint" -->
+## Exit ticket
+
+<div class="quiz" data-answer="2">
+<p class="q">1 · The best way to show a heuristic is incorrect is…</p>
+<ol><li>Run it on large random inputs</li><li>Find one counterexample</li><li>Measure its running time</li><li>Rewrite it in pseudocode</li></ol>
+<p class="explain">One counterexample is a complete proof of incorrectness.</p>
+</div>
+
+Note:
+⏱ 1:33–1:40. Three quick questions (use the vertical slides ↓). Last 2 minutes: ask them to write on a sticky note "the muddiest point of today".
+
+--
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="3">
+<p class="q">2 · Exhaustive search for TSP is…</p>
+<ol><li>Fast and incorrect</li><li>Fast and correct</li><li>Correct but impractical beyond ~20 points</li><li>Incorrect because of ties</li></ol>
+<p class="explain">It checks all (n−1)! tours, so it is correct, and hopeless for large n.</p>
+</div>
+
+--
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="1">
+<p class="q">3 · An instance of a problem is…</p>
+<ol><li>The problem with concrete input data</li><li>A program implementing an algorithm</li><li>The output of the algorithm</li><li>A worst-case input</li></ol>
+<p class="explain">Problem = general specification; instance = one concrete input.</p>
+</div>
+
+---
+
+## Takeaways
+
+- An **algorithm** solves a **general, precisely specified problem** — every instance.
+- We need **correct** *and* **efficient**; better algorithms beat faster hardware.
+- **Heuristics** can look right and still fail. **One counterexample** is enough to kill one.
+- Correctness of recursive algorithms is proved by **induction**.
+
+<p class="muted small">Next: algorithm design techniques — a map of the course.</p>
+
+Note:
+Reading: Skiena, ADM ch. 1 (1.1–1.3). Optional challenge: prove that "earliest finish first" is optimal for movie scheduling.
+</textarea>
+</section>
+</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/markdown/markdown.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/math/math.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/zoom/zoom.js"></script>
+<script src="../assets/js/widgets.js"></script>
+<script src="../assets/js/course.js"></script>
+<script>Course.init();</script>
+</body>
+</html>

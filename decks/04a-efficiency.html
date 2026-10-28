@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Computational Efficiency · TC2038</title>
+<meta name="description" content="TC2038 Analysis and Design of Advanced Algorithms — Computational Efficiency">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<link rel="stylesheet" href="../assets/css/course.css">
+</head>
+<body>
+<div class="reveal">
+<div class="slides">
+<!--
+  SLIDES ARE WRITTEN IN MARKDOWN BELOW
+  ---   new horizontal slide        --    new vertical slide (press ↓)
+  Note: everything after this line is a speaker note (press S)
+  Keep HTML blocks (quizzes, widgets) flush-left and without blank lines inside.
+-->
+<section data-markdown data-separator="^---$" data-separator-vertical="^--$" data-separator-notes="^Note:">
+<textarea data-template>
+<!-- .slide: class="title" -->
+<span class="kicker">TC2038 · Session 04a</span>
+
+# Computational efficiency
+
+### What does "efficient" mean — and how do we say it precisely?
+
+<p class="byline">Dr. Gildardo Sánchez Ante · Tecnológico de Monterrey</p>
+
+Note:
+⏱ 0:00–0:02. Today we build, step by step, the definition of efficiency used by the whole field, and the Big-O notation that expresses it. Based on Kleinberg & Tardos, ch. 2.
+
+---
+
+<!-- .slide: class="activity" -->
+## Warm-up: hardware or algorithm?
+
+<div class="w" data-widget="race"></div>
+
+<div class="quiz" data-answer="2">
+<p class="q">You need to sort 10 million records. Which helps more?</p>
+<ol><li>A computer 1000× faster</li><li>An n log n algorithm instead of n²</li></ol>
+<p class="explain">Move the slider to 10⁷: the better algorithm on the slower machine wins by hours.</p>
+</div>
+
+Note:
+⏱ 0:02–0:08. Vote first, then move the slider. CLRS ch. 1 example: insertion sort (2n²) on 10¹⁰ ops/s vs merge sort (50 n lg n) on 10⁷ ops/s.
+
+---
+
+## Today
+
+<ul class="agenda">
+<li><span class="t">0:08</span> Three attempts at defining efficiency</li>
+<li><span class="t">0:25</span> <b>Checkpoint 1</b></li>
+<li><span class="t">0:30</span> Tractability and growth rates</li>
+<li><span class="t">0:45</span> Counting steps</li>
+<li><span class="t">0:55</span> <b>Checkpoint 2</b></li>
+<li><span class="t">1:00</span> Big-O, Ω, Θ</li>
+<li><span class="t">1:20</span> <b>Checkpoint 3</b> · properties</li>
+<li><span class="t">1:33</span> <b>Exit ticket</b></li>
+</ul>
+
+---
+
+<!-- .slide: data-auto-animate -->
+## Defining efficiency · attempt 1
+
+<div class="card" data-id="def"><h4>Proposed definition 1</h4><p>An algorithm is efficient if, when implemented, it <b>runs quickly on real input instances</b>.</p></div>
+
+<p class="fragment">What's wrong with it?</p>
+
+Note:
+⏱ 0:08–0:12. Let them find the problems: depends on the platform (fast machine), on the implementation (good programmer), on which instances we test, and says nothing about how it scales with bigger inputs. We want a definition that is platform-independent, instance-independent, and predictive as the input grows.
+
+---
+
+<!-- .slide: data-auto-animate -->
+## Defining efficiency · attempt 2
+
+<div class="card" data-id="def"><h4>Proposed definition 2</h4><p>An algorithm is efficient if it achieves <b>qualitatively better worst-case performance</b>, at an analytical level, than brute-force search.</p></div>
+
+<div class="cols small">
+<div class="fragment"><p class="ok">✓ platform-independent</p><p class="ok">✓ worst case covers every instance</p></div>
+<div class="fragment"><p class="bad">✗ vague: what is "qualitatively better"?</p></div>
+</div>
+
+Note:
+⏱ 0:12–0:16. Brute force is typically 2ⁿ or n!: the size of the search space. Worst-case analysis: a guarantee for every input; average-case requires a distribution of inputs that we rarely know.
+
+---
+
+<!-- .slide: data-auto-animate -->
+## Defining efficiency · attempt 3
+
+<div class="card" data-id="def"><h4>Proposed definition 3</h4><p>An algorithm is efficient if it has a <b>polynomial running time</b>.</p></div>
+
+<p>There are constants c > 0 and d > 0 such that on <b>every</b> input of size N the running time is at most</p>
+
+$$c \cdot N^{d} \text{ primitive steps.}$$
+
+<p class="fragment small muted">Doubling N multiplies the bound by only 2ᵈ — a constant. Brute force 2ᴺ <b>squares</b> when N doubles.</p>
+
+Note:
+⏱ 0:16–0:25. This is the definition that stuck. Polynomial = scales gracefully: doubling input → time × constant factor.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz grid2" data-answer="3">
+<p class="q">Which running time is <b>not</b> polynomial?</p>
+<ol><li>n³ + 1000n</li><li>n log n</li><li>1.01ⁿ</li><li>10⁶ · n²</li></ol>
+<p class="explain">1.01ⁿ is exponential: eventually it beats any polynomial. n log n ≤ n² so it's polynomially bounded; big constants don't matter for the definition.</p>
+</div>
+
+Note:
+⏱ 0:25–0:28.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="1">
+<p class="q">An algorithm runs in 2ⁿ steps. You buy a computer 1024× faster. In the same time you can now solve inputs…</p>
+<ol><li>10 elements larger</li><li>1024× larger</li><li>twice as large</li><li>32× larger</li></ol>
+<p class="explain">2ⁿ⁺¹⁰ = 1024 · 2ⁿ. With exponential algorithms, hardware buys you an <b>additive</b> improvement. With n², 1024× faster gives 32× larger inputs.</p>
+</div>
+
+Note:
+⏱ 0:28–0:30. This is the most surprising fact of the session for many students. Spend a minute on it.
+
+---
+
+## Tractability
+
+<p class="small">Running times at 10⁶ steps per second (after Kleinberg & Tardos, Table 2.1)</p>
+
+| n | n | n log₂n | n² | n³ | 1.5ⁿ | 2ⁿ | n! |
+|---|---|---|---|---|---|---|---|
+| 10 | < 1 s | < 1 s | < 1 s | < 1 s | < 1 s | < 1 s | 4 s |
+| 30 | < 1 s | < 1 s | < 1 s | < 1 s | < 1 s | 18 min | 8·10¹⁸ yrs |
+| 50 | < 1 s | < 1 s | < 1 s | < 1 s | 11 min | 36 yrs | very long |
+| 100 | < 1 s | < 1 s | < 1 s | 1 s | 12,892 yrs | 4·10¹⁶ yrs | very long |
+| 1,000 | < 1 s | < 1 s | 1 s | 17 min | very long | very long | very long |
+| 10⁶ | 1 s | 20 s | 12 days | 31,710 yrs | very long | very long | very long |
+
+Note:
+⏱ 0:30–0:35. Problems with polynomial algorithms almost always end up with small exponents (n, n log n, n², n³). Problems with no known polynomial algorithm are usually very hard in practice. This is the idea of an intrinsic level of tractability (Papadimitriou, "Computational Complexity").
+
+---
+
+## See the growth
+
+<div class="w" data-widget="growth" data-nmax="20" data-h="330"></div>
+
+Note:
+⏱ 0:35–0:45. Start with n up to 20 in linear scale: 2ⁿ leaves the chart almost immediately. Switch to log scale: polynomials become straight-ish lines with different slopes; exponentials keep curving up. Enable n! last.
+
+---
+
+## Counting steps
+
+A **step** = assign a variable, look up an array entry, follow a pointer, one arithmetic operation on a fixed-size integer.
+
+<p class="fragment">We could say: "on any input of size n, the algorithm runs for at most <b>1.62n² + 3.5n + 8</b> steps."</p>
+<p class="fragment">But that precision is mostly meaningless: compilers, CPUs and the definition of "step" change the constants. What survives is the <b>shape</b>: <b>n²</b>.</p>
+
+Note:
+⏱ 0:45–0:48.
+
+---
+
+## How many operations?
+
+<div class="w" data-widget="opcount"></div>
+
+Note:
+⏱ 0:48–0:55. Adding n numbers: the measured time is a straight line (linear). Switch snippets and move n. Ask before each move: "if n grows 10×, how much does the count grow?"
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="4">
+<p class="q">How many times does <code>count++</code> run?<br><code>for (i = 1; i &lt; n; i *= 2) for (j = 0; j &lt; n; j++) count++;</code></p>
+<ol><li>n²</li><li>n</li><li>log n</li><li>about n · log₂ n</li></ol>
+<p class="explain">The outer loop doubles i: about log₂ n iterations. The inner loop always runs n times → n log n.</p>
+</div>
+
+Note:
+⏱ 0:55–0:58.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="2">
+<p class="q">Algorithm A takes 100n steps, B takes n²/2. Which is faster for n = 100? And for n = 10,000?</p>
+<ol><li>A both times</li><li>B for n = 100, A for n = 10,000</li><li>B both times</li><li>A for n = 100, B for n = 10,000</li></ol>
+<p class="explain">n = 100: A = 10,000, B = 5,000. n = 10⁴: A = 10⁶, B = 5·10⁷. Crossover at n = 200. Asymptotics describe what happens for large n.</p>
+</div>
+
+Note:
+⏱ 0:58–1:00.
+
+---
+
+## Big-O notation
+
+Let T(n) be the worst-case running time. We say **T(n) = O(f(n))** if there exist constants **c > 0** and **n₀ ≥ 0** such that
+
+$$T(n) \le c \cdot f(n) \quad \text{for all } n \ge n_0 .$$
+
+<p class="small">T is <b>asymptotically upper-bounded</b> by f: from n₀ on, a constant multiple of f stays on top.</p>
+
+Note:
+⏱ 1:00–1:04. Two quantifiers: "there exist c and n₀" then "for all n ≥ n₀". Students often fix n and forget the "for all".
+
+---
+
+## Play with c and n₀
+
+<div class="w" data-widget="bigo" data-h="300"></div>
+
+Note:
+⏱ 1:04–1:10. With f(n) = n²: c = 1.5 never works (T has leading 1.62). c = 2 works from n₀ = 12. With f(n) = n: no c works — the dashed line is always eventually below. With f(n) = n³: c = 1 works from a small n₀ — true but a loose bound.
+
+---
+
+<div class="predict" data-answer="12" data-tol="0">
+<p class="q">For T(n) = 1.62n² + 3.5n + 8 and c = 2, what is the smallest n₀ that works?</p>
+<p class="explain">2n² ≥ 1.62n² + 3.5n + 8 ⇔ 0.38n² − 3.5n − 8 ≥ 0 ⇔ n ≥ 11.1 → <b>n₀ = 12</b>. Check it with the sliders on the previous slide.</p>
+</div>
+
+<details><summary>A proof with "lazy" constants</summary>
+For n ≥ 1: 3.5n ≤ 3.5n² and 8 ≤ 8n², so T(n) ≤ 1.62n² + 3.5n² + 8n² = 13.12n². Take c = 14, n₀ = 1. Any valid pair (c, n₀) is a proof.
+</details>
+
+Note:
+⏱ 1:10–1:14.
+
+---
+
+## The family: O, Ω, Θ
+
+<div class="cols3">
+<div class="card"><h4>O — upper bound</h4><p>T(n) ≤ c·f(n) for n ≥ n₀</p><p class="muted">"at most"</p></div>
+<div class="card"><h4>Ω — lower bound</h4><p>T(n) ≥ ε·f(n) for n ≥ n₀</p><p class="muted">"at least"</p></div>
+<div class="card"><h4>Θ — tight bound</h4><p>T(n) is both O(f) and Ω(f)</p><p class="muted">"exactly the growth of"</p></div>
+</div>
+
+<p class="small fragment">1.62n² + 3.5n + 8 is O(n³) (true but loose), O(n²), Ω(n²), Ω(n), and <b>Θ(n²)</b>.</p>
+
+Note:
+⏱ 1:14–1:20. When possible, give Θ.
+
+---
+
+## Useful properties
+
+- **Transitivity:** f = O(g) and g = O(h) ⇒ f = O(h).
+- **Sums:** f = O(h) and g = O(h) ⇒ f + g = O(h).
+- **Polynomials:** $a_0 + a_1 n + \dots + a_d n^d = \Theta(n^d)$ when $a_d > 0$.
+- **Logs:** $\log_a n = \Theta(\log_b n)$ — the base doesn't matter. Every log grows slower than every nˣ (x > 0).
+- **Exponentials:** every nᵈ = O(rⁿ) for r > 1.
+
+Note:
+⏱ 1:20–1:24. These rules let us analyze code piece by piece without computing exact constants.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz grid2" data-answer="4">
+<p class="q">Which statement is <b>false</b>?</p>
+<ol><li>n² = O(n³)</li><li>log₂ n = Θ(log₁₀ n)</li><li>2ⁿ⁺¹ = O(2ⁿ)</li><li>2²ⁿ = O(2ⁿ)</li></ol>
+<p class="explain">2ⁿ⁺¹ = 2·2ⁿ (constant factor). But 2²ⁿ = 4ⁿ = 2ⁿ·2ⁿ: the ratio 2ⁿ is not bounded by any constant.</p>
+</div>
+
+Note:
+⏱ 1:24–1:28.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="3">
+<p class="q">Order from slowest to fastest growth: n log n, √n, 2ⁿ, n², log n</p>
+<ol><li>log n, n log n, √n, n², 2ⁿ</li><li>√n, log n, n log n, n², 2ⁿ</li><li>log n, √n, n log n, n², 2ⁿ</li><li>log n, √n, n², n log n, 2ⁿ</li></ol>
+<p class="explain">Any log is below any positive power (√n = n^0.5); n log n sits between n and n².</p>
+</div>
+
+Note:
+⏱ 1:28–1:33.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+## Exit ticket
+
+<div class="quiz" data-answer="2">
+<p class="q">To prove T(n) = O(f(n)) you must…</p>
+<ol><li>show T(n) ≤ f(n) for one large n</li><li>exhibit constants c and n₀ with T(n) ≤ c·f(n) for every n ≥ n₀</li><li>run experiments for growing n</li><li>show T(n)/f(n) → 0</li></ol>
+<p class="explain">One valid pair (c, n₀) is a proof. Option D describes little-o, a stronger statement.</p>
+</div>
+
+Note:
+⏱ 1:33–1:40. Muddiest point on a sticky note. Reading: Kleinberg & Tardos ch. 2.1–2.2; Levitin ch. 2.1–2.2.
+
+---
+
+## Takeaways
+
+- **Efficient = polynomial time** in the worst case: platform- and instance-independent, predictive.
+- Exponential algorithms don't scale — faster hardware barely helps.
+- **O / Ω / Θ** keep the shape of growth and drop constants and lower-order terms.
+- A Big-O claim is proved by exhibiting **c** and **n₀**.
+
+<p class="muted small">Next: greedy algorithms.</p>
+</textarea>
+</section>
+</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/markdown/markdown.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/math/math.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/zoom/zoom.js"></script>
+<script src="../assets/js/widgets.js"></script>
+<script src="../assets/js/course.js"></script>
+<script>Course.init();</script>
+</body>
+</html>

@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Branch and Bound · TC2038</title>
+<meta name="description" content="TC2038 Analysis and Design of Advanced Algorithms — Branch and Bound">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<link rel="stylesheet" href="../assets/css/course.css">
+</head>
+<body>
+<div class="reveal">
+<div class="slides">
+<!--
+  SLIDES ARE WRITTEN IN MARKDOWN BELOW
+  ---   new horizontal slide        --    new vertical slide (press ↓)
+  Note: everything after this line is a speaker note (press S)
+  Keep HTML blocks (quizzes, widgets) flush-left and without blank lines inside.
+-->
+<section data-markdown data-separator="^---$" data-separator-vertical="^--$" data-separator-notes="^Note:">
+<textarea data-template>
+<!-- .slide: class="title" -->
+<span class="kicker">TC2038 · Session 07</span>
+
+# Branch and bound
+
+### Explore smart: never open a branch that cannot win
+
+<p class="byline">Dr. Gildardo Sánchez Ante · Tecnológico de Monterrey</p>
+
+Note:
+⏱ 0:00–0:02. Today: the two ingredients that turn backtracking into branch & bound, and a full best-first run on the 0/1 knapsack.
+
+---
+
+<!-- .slide: class="activity" -->
+## Warm-up: going to Puerto Vallarta
+
+You have **2,000 pesos (MXN)** for a one-way trip and want the **fastest** route (bus, plane, shared ride, combinations…).
+
+You already found a route that takes **9 hours** within budget.
+
+<div class="quiz" data-answer="3">
+<p class="q">You're exploring a route whose first leg alone takes 10 hours. What do you do?</p>
+<ol><li>Finish exploring it: it might be cheaper</li><li>Explore it only if it is under budget</li><li>Abandon it and every extension of it: it can't beat 9 hours</li><li>Restart the search from scratch</li></ol>
+<p class="explain">That's the whole idea of branch & bound: compare an <b>optimistic estimate</b> of a partial solution with the <b>best complete solution so far</b>.</p>
+</div>
+
+Note:
+⏱ 0:02–0:06. Everybody does this intuitively when planning a trip. Today we make it an algorithm.
+
+---
+
+## Today
+
+<ul class="agenda">
+<li><span class="t">0:06</span> Recap: optimization, feasible, optimal</li>
+<li><span class="t">0:10</span> The two extra ingredients</li>
+<li><span class="t">0:20</span> <b>Checkpoint 1</b></li>
+<li><span class="t">0:25</span> Efficiency & best-first search</li>
+<li><span class="t">0:32</span> 0/1 knapsack: state-space tree & bound</li>
+<li><span class="t">0:45</span> Full run, step by step</li>
+<li><span class="t">1:00</span> <b>Checkpoint 2</b></li>
+<li><span class="t">1:05</span> Exercise W = 16 (pairs)</li>
+<li><span class="t">1:25</span> Technique comparison</li>
+<li><span class="t">1:33</span> <b>Exit ticket</b></li>
+</ul>
+
+---
+
+## Recap
+
+<div class="cols3">
+<div class="card"><h4>Optimization problem</h4><p>Minimize or maximize an objective function, subject to constraints.</p></div>
+<div class="card"><h4>Feasible solution</h4><p>A point of the search space that satisfies <b>all</b> constraints (e.g., any Hamiltonian circuit in TSP).</p></div>
+<div class="card"><h4>Optimal solution</h4><p>A feasible solution with the best objective value (the shortest Hamiltonian circuit).</p></div>
+</div>
+
+Note:
+⏱ 0:06–0:10.
+
+---
+
+## Backtracking + two ingredients
+
+<div class="cols">
+<div class="card fragment"><h4>1 · A bound for every node</h4><p>An <b>optimistic</b> estimate of the best objective value reachable by completing the partial solution of that node.</p></div>
+<div class="card fragment"><h4>2 · The best solution so far</h4><p>The value of the best <b>complete</b> solution found up to now (the <i>incumbent</i>).</p></div>
+</div>
+
+<div class="callout fragment">
+<b>Pruning rule:</b> if a node's bound is <b>not better</b> than the best solution so far, the node is <b>non-promising</b> → terminate it (prune the branch). No solution below it can win.
+</div>
+
+Note:
+⏱ 0:10–0:16. "Optimistic" is crucial: for maximization the bound must be an upper bound (never underestimate); for minimization a lower bound. A pessimistic bound would prune branches that contain the optimum.
+
+---
+
+## Three reasons to stop at a node
+
+1. Its **bound** is not better than the best solution so far.
+2. It **violates a constraint** (infeasible).
+3. There are **no further choices** (it's a complete solution → maybe a new best).
+
+Note:
+⏱ 0:16–0:20.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="2">
+<p class="q">Maximization problem. Best solution so far: 65. Which node can be pruned?</p>
+<ol><li>A node with upper bound 70</li><li>A node with upper bound 64</li><li>A node with current value 40 and upper bound 76</li><li>None: we must explore all nodes</li></ol>
+<p class="explain">Even in the best case the subtree reaches 64 &lt; 65. The others might still contain something better than 65.</p>
+</div>
+
+Note:
+⏱ 0:20–0:22.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="4">
+<p class="q">For a <b>minimization</b> problem (e.g., TSP), the bound of a node must be…</p>
+<ol><li>an upper bound on the cost of any completion</li><li>the exact optimal cost</li><li>the cost of a greedy completion</li><li>a lower bound on the cost of any completion</li></ol>
+<p class="explain">Optimistic for minimization = "it can't be cheaper than this". Prune when lower bound ≥ best tour found.</p>
+</div>
+
+Note:
+⏱ 0:22–0:25.
+
+---
+
+## Is it efficient?
+
+- General technique: works where **greedy** and **DP** don't apply.
+- Usually **slower** than those when they do apply.
+- **Average case**: often fast — many branches die early.
+- **Worst case**: still exponential; a huge tree can be generated.
+
+<p class="callout">Many NP-hard problems are solved in practice with B&B: integer programming solvers are B&B at heart.</p>
+
+Note:
+⏱ 0:25–0:28.
+
+---
+
+## Best-first search
+
+<div class="cols">
+<div>
+
+- B&B is a **BFS-like** search for the optimum.
+- Not every node is expanded: a **criterion** picks which live node to expand next — usually the one with the **best bound**.
+- Another criterion says when the optimum has been found: **no live node can beat the incumbent**.
+
+</div>
+<div class="card">
+<h4>Live nodes</h4>
+<p>Generated, not yet expanded or pruned. Kept in a <b>priority queue</b> by bound.</p>
+</div>
+</div>
+
+Note:
+⏱ 0:28–0:32.
+
+---
+
+<!-- .slide: class="divider" -->
+## 0/1 knapsack
+
+Knapsack of capacity **W**, n items with weight wᵢ and value vᵢ. Find the **most valuable subset** that fits.
+
+Sort items by **value density** dᵢ = vᵢ / wᵢ, so d₁ ≥ d₂ ≥ … ≥ dₙ.
+
+| Item | Weight | Value | Density |
+|---|---|---|---|
+| 1 | 4 | 40 | 10 |
+| 2 | 7 | 42 | 6 |
+| 3 | 5 | 25 | 5 |
+| 4 | 3 | 12 | 4 |
+
+<p class="small">W = 10</p>
+
+Note:
+⏱ 0:32–0:35. Brute force: 2ⁿ subsets.
+
+---
+
+## The state-space tree
+
+- A **binary tree**: level i decides item i.
+- Root (level 0): nothing decided.
+- **Left** branch: include item i · **right** branch: exclude it.
+- Each node stores **w** (weight so far), **v** (value so far) and **ub**.
+
+Note:
+⏱ 0:35–0:38.
+
+---
+
+## The upper bound
+
+Fill the remaining capacity with the **best remaining density**, as if items were divisible:
+
+$$ub = v + (W - w) \cdot d_{next}$$
+
+<div class="predict" data-answer="100" data-tol="0">
+<p class="q">ub at the root? (w = 0, v = 0, W = 10, best density 10)</p>
+<p class="explain">0 + (10 − 0) · 10 = <b>100</b>. Optimistic: no real subset can reach it, but no subset can exceed it.</p>
+</div>
+
+<div class="predict" data-answer="76" data-tol="0">
+<p class="q">ub after including item 1? (w = 4, v = 40, next density 6)</p>
+<p class="explain">40 + (10 − 4) · 6 = <b>76</b>. Excluding item 1: 0 + 10 · 6 = 60.</p>
+</div>
+
+Note:
+⏱ 0:38–0:45. Why is it a valid upper bound? Every remaining item has density ≤ d_next, so any combination of them that fits in W − w is worth at most (W − w)·d_next.
+
+---
+
+## Full run · best-first B&B
+
+<div class="w" data-widget="knapsack" data-instance="example" data-h="415"></div>
+
+Note:
+⏱ 0:45–1:00. Node numbers match the classic Levitin figure: 0 root (0,0,100) · 1 with item 1 (4,40,76) · 2 without (0,0,60) · 3 infeasible (w = 11) · 4 (4,40,70) · 5 (9,65,69) · 6 (4,40,64) · 7 infeasible (w = 12) · 8 (9,65,65) = optimal. Nodes 6 and 2 are then pruned: inferior to node 8. Only 9 of the 31 nodes of the full tree were generated.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="1">
+<p class="q">Why was node 6 (w = 4, v = 40, ub = 64) never expanded?</p>
+<ol><li>Its bound 64 is below the solution 65 found at node 8</li><li>It violates the capacity</li><li>It is at the last level</li><li>Its value 40 is too small</li></ol>
+<p class="explain">Pruning uses the bound, not the current value: a node with small v but large ub must still be explored.</p>
+</div>
+
+Note:
+⏱ 1:00–1:02.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="3">
+<p class="q">Best-first chose node 1 (ub 76) before node 2 (ub 60). What would happen if we expanded node 2 first?</p>
+<ol><li>We'd get a wrong answer</li><li>Nothing changes, ever</li><li>Still correct, but we'd probably generate more nodes before finding a good incumbent</li><li>The algorithm would loop forever</li></ol>
+<p class="explain">The pruning rule guarantees correctness; the selection rule affects efficiency.</p>
+</div>
+
+Note:
+⏱ 1:02–1:05.
+
+---
+
+<!-- .slide: class="activity" -->
+## Exercise: W = 16
+
+| Item | Weight | Value | Density |
+|---|---|---|---|
+| 1 | 10 | 100 | 10 |
+| 2 | 7 | 63 | 9 |
+| 3 | 8 | 56 | 7 |
+| 4 | 4 | 12 | 3 |
+
+In pairs: draw the best-first B&B tree with (w, v, ub) at each node. Mark pruned and infeasible nodes.
+
+<div class="timer" data-seconds="600"></div>
+
+Note:
+⏱ 1:05–1:20. Walk around. Common mistake: using the density of the item just decided instead of the NEXT item in the bound. Then go to the next slide to check.
+
+---
+
+## Check your tree
+
+<div class="w" data-widget="knapsack" data-instance="exercise" data-h="415"></div>
+
+Note:
+⏱ 1:20–1:25. Answer: items 2 and 3, weight 15, value 119. Notice that greedy by density (take item 1 first) gets only 112 (items 1 and 4).
+
+---
+
+## Same problem, four techniques
+
+| Technique | 0/1 knapsack | Guarantee | Cost |
+|---|---|---|---|
+| Brute force | all 2ⁿ subsets | optimal | Θ(2ⁿ · n) |
+| Greedy by density | take while it fits | **not** optimal | Θ(n log n) |
+| Dynamic programming | table n × W | optimal | Θ(n · W) pseudo-poly |
+| Branch & bound | best-first + ub | optimal | exponential worst, often fast |
+
+Note:
+⏱ 1:25–1:33. In the W = 16 exercise greedy gets 112 vs 119. DP is great when W is small; B&B shines when W is huge but bounds are tight.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+## Exit ticket
+
+<div class="quiz" data-answer="2">
+<p class="q">Branch & bound guarantees the optimal solution because…</p>
+<ol><li>it always expands the node with the best bound</li><li>it only discards nodes whose optimistic bound cannot beat a solution already found</li><li>it explores every node of the tree</li><li>it uses dynamic programming internally</li></ol>
+<p class="explain">Correctness comes from a valid (optimistic) bound + the pruning rule. The best-first order is for speed.</p>
+</div>
+
+Note:
+⏱ 1:33–1:40. Sticky note: "propose a lower bound for TSP". Reading: Levitin ch. 12.2.
+
+---
+
+## Takeaways
+
+- B&B = backtracking + **optimistic bound** per node + **incumbent**.
+- Prune when bound ≤ best (max) or bound ≥ best (min); also on infeasibility.
+- **Best-first** expands the most promising live node.
+- Exponential worst case, often fast in practice; correctness depends on a **valid** bound.
+
+<p class="muted small">This closes Unit 1 (design techniques). Next: string algorithms — KMP.</p>
+</textarea>
+</section>
+</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/markdown/markdown.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/math/math.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/zoom/zoom.js"></script>
+<script src="../assets/js/widgets.js"></script>
+<script src="../assets/js/course.js"></script>
+<script>Course.init();</script>
+</body>
+</html>
