@@ -136,6 +136,20 @@
   }
   try { if (localStorage.getItem("tc2038-dark") === "1") document.documentElement.classList.add("dark"); } catch (e) { /* ignore */ }
 
+  // Markdown quirk: "- text **bold** <!-- .element: class="fragment" -->" attaches the
+  // fragment to the <strong>, not to the list item. Move it to the <li> so the whole
+  // bullet appears at once (otherwise only the bold words are hidden).
+  function fixListFragments(root) {
+    root.querySelectorAll("li strong.fragment, li em.fragment, li b.fragment, li i.fragment, li a.fragment, li code.fragment").forEach((el) => {
+      const li = el.closest("li");
+      if (!li || li.classList.contains("fragment")) { el.classList.remove("fragment"); return; }
+      li.classList.add("fragment");
+      ["data-fragment-index"].forEach((a) => { if (el.hasAttribute(a)) li.setAttribute(a, el.getAttribute(a)); });
+      el.classList.remove("fragment", "visible", "current-fragment");
+      el.removeAttribute("data-fragment-index");
+    });
+  }
+
   function currentSlide() { return window.Reveal && Reveal.getCurrentSlide(); }
 
   function stepCurrent(dir) {
@@ -183,7 +197,9 @@
         plugins
       }, extra || {});
       return Reveal.initialize(cfg).then(() => {
+        fixListFragments(document.querySelector(".reveal .slides"));
         mountAll(document.querySelector(".reveal .slides"));
+        Reveal.sync();
         Reveal.layout();
       });
     }
