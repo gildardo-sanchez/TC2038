@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>String Hashing and Rabin-Karp · TC2038</title>
+<meta name="description" content="TC2038 Analysis and Design of Advanced Algorithms — String Hashing and Rabin-Karp">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<link rel="stylesheet" href="../assets/css/course.css">
+</head>
+<body>
+<div class="reveal">
+<div class="slides">
+<!--
+  SLIDES ARE WRITTEN IN MARKDOWN BELOW
+  ---   new horizontal slide        --    new vertical slide (press ↓)
+  Note: everything after this line is a speaker note (press S)
+  Keep HTML blocks (quizzes, widgets) flush-left and without blank lines inside.
+-->
+<section data-markdown data-separator="^---$" data-separator-vertical="^--$" data-separator-notes="^Note:">
+<textarea data-template>
+<!-- .slide: class="title" -->
+<span class="kicker">TC2038 · Unit 2 · Session 2.4</span>
+
+# String hashing & Rabin–Karp
+
+### Compare long strings by comparing numbers
+
+<p class="byline">Dr. Gildardo Sánchez Ante · Tecnológico de Monterrey<br><span class="tiny">CLRS 32.2 (Rabin–Karp) and ch. 11 (hash tables)</span></p>
+
+Note:
+⏱ 0:00–0:02. Syllabus 2.4. Rabin & Karp, 1987. Today: polynomial hashes, rolling hashes, collisions, and O(1) substring comparison — a Swiss-army knife for contests and interviews.
+
+---
+
+<!-- .slide: class="activity" -->
+## Warm-up: are these the same?
+
+Two servers each hold a 10 GB file. The network is slow.
+
+<div class="quiz" data-answer="3">
+<p class="q">How do you check whether the files are identical?</p>
+<ol><li>Send one file to the other server and compare byte by byte</li><li>Compare their sizes</li><li>Compute a short fingerprint (hash) of each and compare the fingerprints</li><li>Compare the first and last kilobyte</li></ol>
+<p class="explain">Fingerprints: different hashes ⇒ surely different; equal hashes ⇒ equal with very high probability. That's the idea behind rsync, git, and Rabin–Karp.</p>
+</div>
+
+Note:
+⏱ 0:02–0:06.
+
+---
+
+## Today
+
+<ul class="agenda">
+<li><span class="t">0:06</span> Hash functions for strings</li>
+<li><span class="t">0:18</span> Polynomial hash & Horner</li>
+<li><span class="t">0:25</span> <b>Pulse check 1</b></li>
+<li><span class="t">0:30</span> Rolling hash & Rabin–Karp</li>
+<li><span class="t">0:52</span> <b>Pulse check 2</b></li>
+<li><span class="t">0:57</span> Collisions: the birthday paradox</li>
+<li><span class="t">1:07</span> Prefix hashes: any substring in O(1)</li>
+<li><span class="t">1:22</span> <b>Pulse check 3</b> · hands-on</li>
+<li><span class="t">1:33</span> <b>Exit ticket</b></li>
+</ul>
+
+---
+
+## Hash functions for strings
+
+<div class="cols3">
+<div class="card fragment"><h4>Sum of codes</h4><p>"abc" and "cab" collide; with keys ≤ 8 chars sums stay below 1,016 → most of a 10,000-slot table is never used.</p></div>
+<div class="card fragment"><h4>First 3 letters</h4><p>26³ = 17,576 options, but real English uses only ≈ 2,851 → clustering.</p></div>
+<div class="card fragment"><h4>Polynomial</h4><p>Every character, weighted by its position: <b>order matters</b>, values spread well.</p></div>
+</div>
+
+<p class="small fragment">Requirements: fast to compute, spreads keys evenly, deterministic. (Your hash-table slides.)</p>
+
+Note:
+⏱ 0:06–0:12. Hash tables give O(1) average insert/find; collisions handled by separate chaining or open addressing (linear/quadratic probing, double hashing) — CLRS ch. 11.
+
+---
+
+## The polynomial (rolling) hash
+
+$$h(s) = \left(s_0\ p^{n-1} + s_1\ p^{n-2} + \dots + s_{n-1}\right) \bmod m$$
+
+- p: a base larger than the alphabet (31 for lowercase letters, 53 for mixed case); m: a large prime (10⁹ + 7, 10⁹ + 9).
+- **Horner's rule**: y ← y·p + sᵢ (mod m) — one multiplication per character. <!-- .element: class="fragment" -->
+
+<div class="w" data-widget="hashcalc" data-text="abracadabra"></div>
+
+Note:
+⏱ 0:12–0:18. Your exercise: hash("abracadabra") with p = 31, m = 10⁹ + 7, and then with p = 2979, m = 10⁹ + 9. Students type it in. Map a = 1, …, z = 26 (never 0: otherwise "a" and "aa" would collide).
+
+---
+
+## Code
+
+```cpp
+const long long P = 31, M = 1'000'000'007;
+long long polyHash(const string& s) {
+    long long h = 0;
+    for (char c : s) h = (h * P + (c - 'a' + 1)) % M;   // Horner
+    return h;
+}
+```
+
+<p class="small">Use 64-bit arithmetic: h·P stays below 9.2·10¹⁸.</p>
+
+Note:
+⏱ 0:18–0:25. Application from your slides: check whether N strings are all distinct by hashing them into a set — O(total length) expected.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="predict" data-answer="26" data-tol="0">
+<p class="q">p = 10, m = 97, letters a = 1, b = 2, c = 3. h("abc") = (1·10² + 2·10 + 3) mod 97 = ?</p>
+<p class="explain">123 mod 97 = <b>26</b>. With Horner: ((1·10 + 2)·10 + 3) mod 97 = 26.</p>
+</div>
+
+Note:
+⏱ 0:25–0:30.
+
+---
+
+## Rolling the window
+
+Windows of length m: knowing h(T[s..s+m−1]), get the next one in **O(1)**:
+
+$$t_{s+1} = \left(d\ \big(t_s - T[s]\ h\big) + T[s+m]\right) \bmod q, \qquad h = d^{m-1} \bmod q$$
+
+<p class="small">Drop the leftmost digit, shift, add the new rightmost digit — like a sliding odometer.</p>
+
+Note:
+⏱ 0:30–0:35. CLRS uses d for the base (radix) and q for the modulus.
+
+---
+
+## Rabin–Karp (CLRS Fig. 32.5)
+
+<div class="w" data-widget="rabinkarp"></div>
+
+Note:
+⏱ 0:35–0:47. CLRS's example: T = 2359023141526739921, P = 31415, q = 13. h(P) = 7. The window 31415 is a valid match; 67399 also hashes to 7 → spurious hit, rejected after comparing characters. Change q to 101 or 1009: spurious hits disappear.
+
+---
+
+## Analysis
+
+<div class="cols">
+<div>
+
+- Preprocessing Θ(m), each window O(1).
+- Every hash hit costs O(m) to verify.
+- **Worst case** O((n − m + 1)·m): e.g., T = aⁿ, P = aᵐ (every window is a real hit) or an adversarial q.
+- **Expected** O(n + m) with a large random prime q: spurious hits occur with probability ≈ 1/q per window.
+
+</div>
+<div class="card">
+<h4>Where Rabin–Karp shines</h4>
+<p><b>Many patterns</b> of the same length (put their hashes in a set), 2-D pattern matching, plagiarism detection (fingerprints of all k-grams).</p>
+</div>
+</div>
+
+Note:
+⏱ 0:47–0:52.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="2">
+<p class="q">A <b>spurious hit</b> in Rabin–Karp is…</p>
+<ol><li>a real occurrence that the hash misses</li><li>a window whose hash equals h(P) but whose characters differ</li><li>an overflow in the rolling computation</li><li>a window that is skipped</li></ol>
+<p class="explain">Equal hashes don't prove equal strings; different hashes do prove different strings. So Rabin–Karp never misses a match.</p>
+</div>
+
+--
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="4">
+<p class="q">Rabin–Karp (with verification) is…</p>
+<ol><li>Monte Carlo: may report wrong matches</li><li>deterministic O(n)</li><li>always faster than KMP</li><li>Las Vegas: always correct; the time depends on how many hits happen</li></ol>
+<p class="explain">Without the verification step it would be Monte Carlo (Unit 4: randomized algorithms).</p>
+</div>
+
+Note:
+⏱ 0:52–0:57.
+
+---
+
+## Collisions: the birthday paradox
+
+<div class="w" data-widget="birthday"></div>
+
+Note:
+⏱ 0:57–1:05. With 23 people, two share a birthday with probability > 50%. With m = 10⁹ + 7 and 10⁵ strings, a collision is very likely! Fixes: 64-bit modulus (2⁶¹ − 1), or two independent hashes (≈ 10¹⁸). Warning: hashing mod 2⁶⁴ (letting unsigned overflow) is broken by the Thue–Morse string — use a prime modulus and a random base.
+
+---
+
+## Any substring in O(1)
+
+Precompute prefix hashes H[i] = h(s[0..i−1]) and powers pw[i] = pⁱ:
+
+$$h(s[l..r)) = \big(H[r] - H[l]\cdot p^{r-l}\big) \bmod m$$
+
+```cpp
+vector<long long> H(n + 1, 0), pw(n + 1, 1);
+for (int i = 0; i < n; i++) { H[i+1] = (H[i] * P + s[i]) % M;  pw[i+1] = pw[i] * P % M; }
+auto sub = [&](int l, int r) { return ((H[r] - H[l] * pw[r - l]) % M + M) % M; };  // s[l..r)
+```
+
+<p class="small">Compare two substrings in O(1) · LCP of two suffixes by binary search in O(log n) · palindrome check with the reversed string's hashes.</p>
+
+Note:
+⏱ 1:05–1:15. These three tricks solve many "hard" contest problems in O(n log n), e.g., longest repeated substring by binary search on the length (next session we'll do it with suffix arrays).
+
+---
+
+## Hashing vs the exact algorithms
+
+| Task | Exact tool | Hashing |
+|---|---|---|
+| One pattern | KMP / Z: Θ(n + m) | Rabin–Karp: O(n + m) expected |
+| Many patterns, same length | Aho–Corasick | set of hashes |
+| Compare two substrings | suffix array + LCP + RMQ | O(1) |
+| Longest palindrome | Manacher O(n) | binary search + hash O(n log n) |
+
+Note:
+⏱ 1:15–1:22. Hashing: simpler code, probabilistic guarantee.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="1">
+<p class="q">Why should the character values start at 1 (a = 1) rather than 0?</p>
+<ol><li>With a = 0, "b", "ab", "aab" … would all get the same hash</li><li>Because ASCII starts at 1</li><li>To avoid overflow</li><li>It makes no difference</li></ol>
+<p class="explain">Leading zeros don't change a number: 0·p² + 0·p + 2 = 2.</p>
+</div>
+
+--
+
+<!-- .slide: class="activity" -->
+## Your turn
+
+Digits, d = 10, q = 11, P = **26**, T = **3141592653589793**.
+
+1. h(P)?
+2. Roll the window hash through T. List the hits; which are spurious?
+3. Choose a q that avoids all spurious hits here.
+
+<div class="timer" data-seconds="420"></div>
+
+<details><summary>Answers</summary>
+1) 26 mod 11 = 4. 2) Windows ≡ 4 (mod 11): 15, 59, 92 (spurious) and 26 (valid match at shift 6). 3) e.g. q = 101 (any q > 99 works for two-digit windows). Check it with the Rabin–Karp widget.
+</details>
+
+Note:
+⏱ 1:22–1:33.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+## Exit ticket
+
+<div class="quiz" data-answer="3">
+<p class="q">You hash 10⁶ distinct strings modulo m = 10⁹ + 7. A collision is…</p>
+<ol><li>essentially impossible</li><li>about 0.1% likely</li><li>almost certain (n²/2m ≈ 500)</li><li>impossible if p is prime</li></ol>
+<p class="explain">Birthday paradox: collisions appear around n ≈ √m ≈ 3·10⁴. Use two moduli or a 61-bit prime.</p>
+</div>
+
+Note:
+⏱ 1:33–1:40. Reading: CLRS 32.2; cp-algorithms "String hashing".
+
+---
+
+## Takeaways
+
+- **Polynomial hash** with Horner: order-sensitive fingerprints; values from 1, prime modulus.
+- **Rolling hash**: next window in O(1) → **Rabin–Karp**, expected O(n + m), always correct with verification.
+- **Collisions** appear around √m strings — use double hashing or 2⁶¹ − 1.
+- **Prefix hashes**: any substring's hash in O(1).
+
+<p class="muted small">Next: suffix arrays and the longest common substring.</p>
+</textarea>
+</section>
+</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/markdown/markdown.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/math/math.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/zoom/zoom.js"></script>
+<script src="../assets/js/widgets.js"></script>
+<script src="../assets/js/widgets-strings.js"></script>
+<script src="../assets/js/course.js"></script>
+<script>Course.init();</script>
+</body>
+</html>

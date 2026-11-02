@@ -85,6 +85,7 @@ html, body { background: var(--bg); }
 .reveal table { margin: 0.6em 0; border-collapse: collapse; font-size: 0.8em; }
 .reveal table th, .reveal table td { border: none; border-bottom: 1px solid var(--line); padding: 0.35em 0.8em; text-align: left; }
 .reveal table th { color: var(--muted); font-weight: 600; }
+.reveal table.tight td, .reveal table.tight th { padding: 0.12em 0.6em; }
 .reveal .progress { color: var(--accent); height: 4px; }
 .reveal .controls { color: var(--accent); }
 .reveal .slide-number { background: transparent; color: var(--muted); font-family: var(--mono); font-size: 14px; }
@@ -135,6 +136,7 @@ html.dark .hljs-title { color: #e599f7; }
 .reveal .bad { color: var(--bad); font-weight: 600; }
 .reveal .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 2em; align-items: start; }
 .reveal .cols3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.2em; align-items: start; }
+.reveal .cols:has(> :nth-child(3):last-child) { grid-template-columns: repeat(3, 1fr); gap: 1.2em; }
 .reveal .card {
   background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 0.7em 0.9em;
 }

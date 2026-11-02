@@ -1,0 +1,384 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Knapsack and the Traveling Salesman · TC2038</title>
+<meta name="description" content="TC2038 Analysis and Design of Advanced Algorithms — Knapsack and the Traveling Salesman">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<link rel="stylesheet" href="../assets/css/course.css">
+</head>
+<body>
+<div class="reveal">
+<div class="slides">
+<!--
+  SLIDES ARE WRITTEN IN MARKDOWN BELOW
+  ---   new horizontal slide        --    new vertical slide (press ↓)
+  Note: everything after this line is a speaker note (press S)
+  Keep HTML blocks (quizzes, widgets) flush-left and without blank lines inside.
+-->
+<section data-markdown data-separator="^---$" data-separator-vertical="^--$" data-separator-notes="^Note:">
+<textarea data-template>
+<!-- .slide: class="title" -->
+<span class="kicker">TC2038 · Unit 3 · Session 3.3</span>
+
+# Knapsack & the traveling salesman
+
+### One problem DP tames, one that resists everything
+
+<p class="byline">Dr. Gildardo Sánchez Ante · Tecnológico de Monterrey<br><span class="tiny">CLRS 3rd ed., 15.3, 16.2, 35.2 · Held & Karp (1962) · Applegate, Bixby, Chvátal & Cook, <i>The Traveling Salesman Problem</i> (2006)</span></p>
+
+Note:
+⏱ 0:00–0:02. Syllabus 3.5 (knapsack) and 3.6 (TSP). Both are NP-hard in general; the difference is that knapsack has a pseudo-polynomial DP.
+
+---
+
+<!-- .slide: class="activity" -->
+## Warm-up: pack the backpack
+
+<div class="cols">
+<div>
+
+Capacity **W = 5 kg**. Each item is taken whole or not at all.
+
+| item | weight | value |
+|---|---|---|
+| 1 | 2 | 3 |
+| 2 | 3 | 4 |
+| 3 | 4 | 5 |
+| 4 | 5 | 6 |
+
+</div>
+<div>
+
+<div class="quiz" data-answer="2">
+<p class="q">Best total value?</p>
+<ol><li>6 (item 4 alone)</li><li>7 (items 1 + 2)</li><li>8 (items 1 + 3)</li><li>9 (items 2 + 3)</li></ol>
+<p class="explain">1 + 3 weighs 6 and 2 + 3 weighs 7: too heavy. Items 1 + 2 weigh exactly 5 → value 7.</p>
+</div>
+
+</div>
+</div>
+
+Note:
+⏱ 0:02–0:05. Your example 2. Ask how they found it: they tried combinations. For n items there are 2ⁿ.
+
+---
+
+## Today
+
+<ul class="agenda">
+<li><span class="t">0:05</span> 0/1 knapsack: why greedy fails, the right subproblem</li>
+<li><span class="t">0:20</span> The DP table, step by step</li>
+<li><span class="t">0:35</span> <b>Pulse check 1</b></li>
+<li><span class="t">0:40</span> TSP: definition, applications, how hard</li>
+<li><span class="t">0:52</span> Heuristics: nearest neighbor, repetitive NN, cheapest link</li>
+<li><span class="t">1:07</span> Exact: brute force and Held–Karp</li>
+<li><span class="t">1:15</span> <b>Pulse check 2</b> · hands-on</li>
+<li><span class="t">1:33</span> <b>Exit ticket</b></li>
+</ul>
+
+---
+
+## 0/1 knapsack
+
+- n items, item i has integer **weight wᵢ** and **benefit bᵢ**; capacity **W**.
+- Choose T ⊆ {1..n} maximizing Σ bᵢ subject to Σ wᵢ ≤ W. <!-- .element: class="fragment" -->
+- "0/1": each item is taken entirely or not at all. <!-- .element: class="fragment" -->
+
+<div class="cols fragment">
+<div class="card"><h4>Brute force</h4><p>Try all 2ⁿ subsets: <b>O(2ⁿ · n)</b>. n = 60 → 10¹⁸ subsets.</p></div>
+<div class="card"><h4>Greedy by value/weight?</h4><p>Optimal for the <b>fractional</b> knapsack (CLRS 16.2), wrong for 0/1: W = 50, items (10, 60), (20, 100), (30, 120). Greedy takes 1 + 2 → 160; optimum 2 + 3 → 220.</p></div>
+</div>
+
+Note:
+⏱ 0:05–0:10. Unit 1 (greedy session) already showed this counterexample: quick recall.
+
+---
+
+## A subproblem that does NOT work
+
+<div class="cols">
+<div>
+
+Idea: B[k] = best selection from items {1..k}.
+
+| item | w | b |
+|---|---|---|
+| 1 | 2 | 3 |
+| 2 | 3 | 4 |
+| 3 | 4 | 5 |
+| 4 | 5 | 8 |
+| 5 | 9 | 10 |
+
+W = 20
+
+</div>
+<div>
+
+- Best for {1..4}: all of them, weight 14, value **20**. <!-- .element: class="fragment" -->
+- Best for {1..5}: items 1, 3, 4, 5, weight 20, value **26**. <!-- .element: class="fragment" -->
+- The best for {1..4} is **not** part of the best for {1..5}! <!-- .element: class="fragment" -->
+
+<p class="fragment"><b>Fix:</b> add a second parameter — the remaining capacity.</p>
+
+</div>
+</div>
+
+Note:
+⏱ 0:10–0:15. Your slides 9–11. Excellent moment to discuss "choosing the subproblem" as THE creative step in DP.
+
+---
+
+## The recurrence
+
+**B[k][w]** = best value using items 1..k with capacity w.
+
+$$B[k][w] = \begin{cases} B[k-1][w] & \text{if } w_k > w \\\\ \max\left(B[k-1][w],\quad b_k + B[k-1][w - w_k]\right) & \text{otherwise} \end{cases}$$
+
+<div class="cols small">
+<div class="card fragment"><h4>Skip item k</h4><p>Best with the first k − 1 items and the same capacity.</p></div>
+<div class="card fragment"><h4>Take item k</h4><p>Its value, plus the best with the first k − 1 items in the capacity that's left.</p></div>
+<div class="card fragment"><h4>Base cases</h4><p>B[0][w] = 0 and B[k][0] = 0.</p></div>
+</div>
+
+Note:
+⏱ 0:15–0:20.
+
+---
+
+## Filling the table
+
+<div class="w" data-widget="knapdp" data-preset="b"></div>
+
+Note:
+⏱ 0:20–0:33. Your example 1: n = 4, W = 7, items (1,1), (3,4), (4,5), (5,7). Answer 9 with items {2, 3}. For each cell, ask the room: "skip or take?". The orange cells are the two cells the max reads. At the end the green path is the traceback: if B[i][w] ≠ B[i−1][w] item i was taken. Then switch to the W = 5 example (answer 7).
+
+---
+
+## Code and cost
+
+```cpp
+int knapsack(int W, const vector<int>& wt, const vector<int>& b) {
+    int n = wt.size();
+    vector<vector<int>> B(n + 1, vector<int>(W + 1, 0));
+    for (int k = 1; k <= n; k++)
+        for (int w = 0; w <= W; w++) {
+            B[k][w] = B[k - 1][w];                                    // skip item k
+            if (wt[k - 1] <= w)
+                B[k][w] = max(B[k][w], b[k - 1] + B[k - 1][w - wt[k - 1]]);  // take it
+        }
+    return B[n][W];
+}
+```
+
+<div class="cols small">
+<div class="card"><h4>Cost</h4><p><b>Θ(n·W)</b> time and space; Θ(W) space keeping one row and iterating w downward.</p></div>
+<div class="card fragment"><h4>Polynomial?</h4><p>No: W is written with log W bits, so n·W is <b>exponential in the input size</b> → <b>pseudo-polynomial</b>. Knapsack is NP-hard.</p></div>
+</div>
+
+Note:
+⏱ 0:30–0:35. Your slide 19: plain recursion recomputes the same (k, w) pairs — memoization or the table fixes it.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="predict" data-answer="8" data-tol="0">
+<p class="q">Items (w, b): (1, 1), (3, 4), (4, 5), (5, 7). What is B[4][6] (all four items, capacity 6)?</p>
+<p class="explain">max(skip: B[3][6] = 6, take item 4: 7 + B[3][1] = 7 + 1) = <b>8</b> → items 1 and 4. Check row 4 in the widget.</p>
+</div>
+
+--
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="3">
+<p class="q">The DP for 0/1 knapsack runs in Θ(nW). With n = 100 items and W = 10¹², it is…</p>
+<ol><li>fast: it's polynomial</li><li>fast: n is small</li><li>hopeless: 10¹⁴ cells — the running time grows with the value of W, not with its number of digits</li><li>impossible: knapsack is undecidable</li></ol>
+<p class="explain">Pseudo-polynomial. Here, branch and bound (Unit 1) or meet in the middle (Unit 5) are better options.</p>
+</div>
+
+Note:
+⏱ 0:35–0:40.
+
+---
+
+<!-- .slide: class="divider" -->
+## Part 2 · The traveling salesman
+
+Visit every city once and come back, as cheaply as possible
+
+---
+
+## TSP
+
+<div class="cols">
+<div>
+
+- Given cities c₁…cₙ and a cost d(cᵢ, cⱼ) for each pair, find a **Hamiltonian cycle of minimum total cost**.
+- **Symmetric** (d(i, j) = d(j, i)) or **asymmetric**. <!-- .element: class="fragment" -->
+- **Metric** if the triangle inequality holds. <!-- .element: class="fragment" -->
+
+</div>
+<div class="card fragment">
+<h4>Everywhere</h4>
+<p>Delivery routes (UPS, FedEx), drilling circuit boards, X-ray crystallography (orient a crystal), genome sequencing, telescope scheduling, warehouse picking, video compression.</p>
+</div>
+</div>
+
+<p class="fragment small">NP-hard (Karp, 1972). Number of distinct tours: <b>(n − 1)!/2</b>. 20 cities → about 6·10¹⁶.</p>
+
+Note:
+⏱ 0:40–0:46. Your slides 2–7. Record: an 85,900-city instance solved optimally (Applegate et al., 2006) using LP + branch and cut.
+
+---
+
+## Our instance: K₅
+
+<div class="w" data-widget="tspgraph" data-h="330"></div>
+
+Note:
+⏱ 0:46–1:07. Run the four buttons in order. Nearest neighbor from A: A D B E C A = 32. Repetitive NN: try every start, best = 29. Cheapest link: AD 3, BE 4, BC 5, (BD 6 skipped: B already has degree 2), CD 7, (DE 8 and CE 10 skipped), AE 11 closes the tour → 30. Brute force: 29 (A C B E D A). Moral: heuristics are fast (O(n²) or O(n² log n)) but give no guarantee; on your slides' graph NN gave 28 and cheapest link 27.
+
+---
+
+## The heuristics, precisely
+
+<div class="cols">
+<div class="card"><h4>Nearest neighbor</h4><p>From the start, always go to the nearest unvisited city; return at the end. O(n²).</p></div>
+<div class="card"><h4>Repetitive NN</h4><p>Run NN from every city, keep the cheapest tour. O(n³).</p></div>
+<div class="card"><h4>Cheapest link</h4><p>Take edges by increasing cost; skip any edge that gives a vertex degree 3 or closes a cycle before all cities are included. O(n² log n) — Kruskal-like (next session!).</p></div>
+</div>
+
+<p class="small fragment">With guarantees (metric TSP): MST doubling → ≤ 2·OPT (CLRS 35.2); Christofides (1976) → ≤ 1.5·OPT. Improvement heuristics: 2-opt, Lin–Kernighan; metaheuristics from Unit 5: SA, GA, ACO.</p>
+
+Note:
+⏱ 1:00–1:04.
+
+---
+
+## Exact: Held–Karp dynamic programming (1962)
+
+<div class="cols">
+<div>
+
+**C(S, j)** = cheapest path that starts at city 1, visits every city in S exactly once, and ends at j ∈ S.
+
+$$C(S, j) = \min_{i \in S \setminus \lbrace j \rbrace} C(S \setminus \lbrace j \rbrace, i) + d(i, j)$$
+
+<p class="small">Answer: min over j of C(all, j) + d(j, 1).</p>
+
+</div>
+<div>
+
+| n | n! | n² 2ⁿ |
+|---|---|---|
+| 10 | 3.6·10⁶ | 1.0·10⁵ |
+| 20 | 2.4·10¹⁸ | 4.2·10⁸ |
+| 30 | 2.7·10³² | 9.7·10¹¹ |
+
+<p class="small"><b>O(n²·2ⁿ)</b> time, O(n·2ⁿ) space: still exponential, but n = 20 becomes feasible — S is a bitmask (Unit 5).</p>
+
+</div>
+</div>
+
+Note:
+⏱ 1:04–1:10. Same DP pattern as knapsack: what have I used so far (a set instead of a capacity) and where am I.
+
+---
+
+## Held–Karp in C++
+
+```cpp
+// d: n×n cost matrix, city 0 is the start
+vector<vector<int>> C(1 << n, vector<int>(n, INF));
+C[1][0] = 0;
+for (int S = 1; S < (1 << n); S++) if (S & 1)
+    for (int j = 0; j < n; j++) if ((S >> j & 1) && C[S][j] < INF)
+        for (int k = 0; k < n; k++) if (!(S >> k & 1))
+            C[S | 1 << k][k] = min(C[S | 1 << k][k], C[S][j] + d[j][k]);
+int best = INF;
+for (int j = 1; j < n; j++) best = min(best, C[(1 << n) - 1][j] + d[j][0]);
+```
+
+Note:
+⏱ 1:10–1:15. Push-style version of the recurrence.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="predict" data-answer="12" data-tol="0">
+<p class="q">How many distinct tours does a symmetric TSP with 5 cities have?</p>
+<p class="explain">(5 − 1)!/2 = 24/2 = <b>12</b> (fix the start; each tour and its reverse are the same).</p>
+</div>
+
+--
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="1">
+<p class="q">Nearest neighbor found a tour of cost 32 and repetitive NN one of cost 29. What do we know about the optimum?</p>
+<ol><li>OPT ≤ 29</li><li>OPT = 29</li><li>OPT ≥ 32</li><li>OPT is between 29 and 32</li></ol>
+<p class="explain">A heuristic tour is only an upper bound. Here OPT happens to be 29, but only brute force or Held–Karp can certify it.</p>
+</div>
+
+--
+
+<!-- .slide: class="activity" -->
+## Your turn
+
+1. Knapsack: W = 6, items (w, b) = (3, 5), (2, 3), (4, 6), (1, 2). Fill the table; which items?
+2. TSP on K₅ above: run nearest neighbor **starting at C**. Cost?
+3. Why is cheapest link not just "Kruskal's MST"? What extra rule does it have?
+
+<div class="timer" data-seconds="540"></div>
+
+<details><summary>Answers</summary>
+1) Best value 10: items 1, 2 and 4 (w 6, b 10); items 2 + 3 give only 9. 2) C → B (5) → E (4) → D (8) → A (3) → C (9) = 29. 3) Degree ≤ 2 for every vertex, and a cycle is allowed only at the very end.
+</details>
+
+Note:
+⏱ 1:15–1:33.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+## Exit ticket
+
+<div class="quiz" data-answer="2">
+<p class="q">What do the knapsack DP and Held–Karp have in common?</p>
+<ol><li>Both are polynomial</li><li>Both index subproblems by "what I have used so far" (capacity or set of cities) plus a little state, and both are exponential in the input size</li><li>Both are greedy</li><li>Both need non-negative weights</li></ol>
+<p class="explain">Θ(nW) is exponential in log W; O(n²2ⁿ) is exponential in n. Still, both are vastly better than brute force.</p>
+</div>
+
+Note:
+⏱ 1:33–1:40. Reading: CLRS 15.3 (elements of DP), 35.2 (approximate TSP).
+
+---
+
+## Takeaways
+
+- **0/1 knapsack**: B[k][w] = max(skip, take); **Θ(nW)**, pseudo-polynomial; the right subproblem needs the capacity.
+- **TSP**: (n − 1)!/2 tours; NP-hard.
+- Heuristics (**NN, repetitive NN, cheapest link**) are fast upper bounds with no guarantee.
+- **Held–Karp**: DP over subsets, **O(n²2ⁿ)**.
+
+<p class="muted small">Next: minimum spanning trees — Prim and Kruskal.</p>
+</textarea>
+</section>
+</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/markdown/markdown.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/math/math.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/zoom/zoom.js"></script>
+<script src="../assets/js/widgets.js"></script>
+<script src="../assets/js/widgets-graphs.js"></script>
+<script src="../assets/js/course.js"></script>
+<script>Course.init();</script>
+</body>
+</html>

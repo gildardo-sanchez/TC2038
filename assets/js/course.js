@@ -198,7 +198,7 @@
         katex: { version: "0.16.11", delimiters: [
           { left: "$$", right: "$$", display: true },
           { left: "$", right: "$", display: false }
-        ], ignoredTags: ["script", "noscript", "style", "textarea", "pre", "code"] },
+        ], ignoredTags: ["script", "noscript", "style", "textarea", "pre", "code"], ignoredClasses: ["w", "nomath"] },
         keyboard: {
           190: () => stepCurrent(1),   // .
           188: () => stepCurrent(-1),  // ,

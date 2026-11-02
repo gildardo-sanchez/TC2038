@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Longest Palindrome: Manacher · TC2038</title>
+<meta name="description" content="TC2038 Analysis and Design of Advanced Algorithms — Longest Palindrome: Manacher">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<link rel="stylesheet" href="../assets/css/course.css">
+</head>
+<body>
+<div class="reveal">
+<div class="slides">
+<!--
+  SLIDES ARE WRITTEN IN MARKDOWN BELOW
+  ---   new horizontal slide        --    new vertical slide (press ↓)
+  Note: everything after this line is a speaker note (press S)
+  Keep HTML blocks (quizzes, widgets) flush-left and without blank lines inside.
+-->
+<section data-markdown data-separator="^---$" data-separator-vertical="^--$" data-separator-notes="^Note:">
+<textarea data-template>
+<!-- .slide: class="title" -->
+<span class="kicker">TC2038 · Unit 2 · Session 2.3</span>
+
+# Longest palindrome: Manacher
+
+### Palindromes are symmetric — so is the work
+
+<p class="byline">Dr. Gildardo Sánchez Ante · Tecnológico de Monterrey<br><span class="tiny">G. Manacher, "A new linear-time on-line algorithm for finding the smallest initial palindrome of a string", J. ACM, 1975</span></p>
+
+Note:
+⏱ 0:00–0:02. Syllabus 2.3. Small correction to the old slides: the algorithm is due to Glenn Manacher (1975); Rabin and Karp are the authors of the hashing-based matcher of session 2.4.
+
+---
+
+<!-- .slide: class="activity" -->
+## Warm-up
+
+<div class="cols">
+<div>
+
+Find the **longest palindromic substring** of
+
+<p class="big mono">abaccab</p>
+
+Then of
+
+<p class="big mono">abaxabaxabb</p>
+
+</div>
+<div>
+<div class="timer" data-seconds="120"></div>
+<details><summary>Answers</summary>"baccab" (6, even length!) and "baxabaxab" (9).</details>
+</div>
+</div>
+
+Note:
+⏱ 0:02–0:06. Both examples come from your old slides. Notice the first answer has EVEN length: no single center character — remember it for the # trick.
+
+---
+
+## Today
+
+<ul class="agenda">
+<li><span class="t">0:06</span> Brute force O(n³) → expand around centers O(n²)</li>
+<li><span class="t">0:20</span> <b>Pulse check 1</b></li>
+<li><span class="t">0:25</span> Even lengths: the # trick</li>
+<li><span class="t">0:32</span> Mirrors and the three cases</li>
+<li><span class="t">0:55</span> <b>Pulse check 2</b></li>
+<li><span class="t">1:00</span> Manacher step by step · why O(n)</li>
+<li><span class="t">1:20</span> <b>Pulse check 3</b> · hands-on</li>
+<li><span class="t">1:33</span> <b>Exit ticket</b></li>
+</ul>
+
+---
+
+## Three slower solutions
+
+<div class="cols3">
+<div class="card fragment"><h4>Brute force</h4><p>All O(n²) substrings, check each in O(n) → <b>O(n³)</b>.</p></div>
+<div class="card fragment"><h4>Dynamic programming</h4><p>pal[i][j] = (s[i] = s[j]) and pal[i+1][j−1] → <b>O(n²)</b> time and space.</p></div>
+<div class="card fragment"><h4>Expand around centers</h4><p>2n − 1 centers, expand while symmetric → <b>O(n²)</b> time, O(1) space.</p></div>
+</div>
+
+<p class="small fragment">Expanding from every center of <span class="mono">aibioibia</span> gives radii 1 1 3 1 9 1 3 1 1 (your slides): lots of re-checking of the same characters.</p>
+
+Note:
+⏱ 0:06–0:15.
+
+---
+
+## Expand around center
+
+```cpp
+int expand(const string& s, int L, int R) {      // returns palindrome length
+    while (L >= 0 && R < (int)s.size() && s[L] == s[R]) { L--; R++; }
+    return R - L - 1;
+}
+// for each i: best = max(best, expand(s, i, i), expand(s, i, i + 1))
+```
+
+<div class="predict" data-answer="19" data-tol="0">
+<p class="q">How many centers (odd + even) does a string of length n = 10 have?</p>
+<p class="explain">n character centers + (n − 1) gap centers = 2n − 1 = <b>19</b>. The # trick next turns all of them into character centers.</p>
+</div>
+
+Note:
+⏱ 0:15–0:20.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="2">
+<p class="q">Why is "expand around center" O(n²) and not O(n)?</p>
+<ol><li>It sorts the centers first</li><li>Different centers re-compare the same characters again and again (e.g., aaaa…a)</li><li>It uses recursion</li><li>Because of even-length palindromes</li></ol>
+<p class="explain">On aⁿ every center expands to the border: Θ(n²) comparisons.</p>
+</div>
+
+Note:
+⏱ 0:20–0:25.
+
+---
+
+## The # trick: only odd palindromes
+
+Insert a separator between all characters and at both ends:
+
+<p class="center mono big">abaccab → #a#b#a#c#c#a#b#</p>
+
+- Every palindrome of the new string t has odd length and a center (a letter or a #).
+- If the radius at position i of t is p[i], the original palindrome has **length p[i]** and starts at **(i − p[i]) / 2**. <!-- .element: class="fragment" -->
+
+Note:
+⏱ 0:25–0:32. "baccab" becomes "#b#a#c#c#a#b#", centered at the # between the two c's, radius 6.
+
+---
+
+## Mirrors
+
+Let **[c − p[c], r]** be the palindrome that reaches **farthest to the right** found so far (center c, right end r).
+
+For i inside it, its **mirror** is **i' = 2c − i**: by symmetry, the neighborhood of i looks like the neighborhood of i'.
+
+<div class="cols3 small">
+<div class="card fragment"><h4>Case 1 · p[i'] &lt; r − i</h4><p>Mirror palindrome strictly inside → <b>p[i] = p[i']</b>, no expansion possible.</p></div>
+<div class="card fragment"><h4>Case 2 · p[i'] &gt; r − i</h4><p>Mirror sticks out on the left → only <b>r − i</b> is guaranteed; and in fact p[i] = r − i.</p></div>
+<div class="card fragment"><h4>Case 3 · p[i'] = r − i</h4><p>Touches the border → start at r − i and <b>try to expand</b> beyond r.</p></div>
+</div>
+
+Note:
+⏱ 0:32–0:45. Your slides: "length[i] ≥ length[i'], start expanding after that". The A B A B A B A example shows copying from the mirror.
+
+---
+
+## In one line
+
+$$p[i] = \begin{cases} \min(r - i,\ p[2c - i]) & i \le r \\\\ 0 & i > r \end{cases} \quad\text{then expand; if } i + p[i] > r:\ c \leftarrow i,\ r \leftarrow i + p[i]$$
+
+```cpp [1-2|3-4|5|6|7]
+vector<int> manacher(const string& s) {            // radii on t = #s0#s1#...#
+    string t = "#"; for (char ch : s) { t += ch; t += '#'; }
+    int n = t.size(), c = 0, r = -1;  vector<int> p(n, 0);
+    for (int i = 0; i < n; i++) {
+        if (i <= r) p[i] = min(r - i, p[2 * c - i]);
+        while (i - p[i] - 1 >= 0 && i + p[i] + 1 < n && t[i - p[i] - 1] == t[i + p[i] + 1]) p[i]++;
+        if (i + p[i] > r) { c = i; r = i + p[i]; }
+    }
+    return p;                                      // max p[i] = longest palindrome length
+}
+```
+
+Note:
+⏱ 0:45–0:55.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="1">
+<p class="q">c = 5, r = 9, i = 8, p[2] = 5. What is the initial p[8]?</p>
+<ol><li>min(r − i, p[2c − i]) = min(1, 5) = 1</li><li>5</li><li>0</li><li>9</li></ol>
+<p class="explain">i' = 2·5 − 8 = 2. The mirror (5) sticks out of the current palindrome, so only r − i = 1 is guaranteed (Case 2) — exactly the example in your slides.</p>
+</div>
+
+--
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="3">
+<p class="q">In which case can p[i] become larger than its initial value?</p>
+<ol><li>Case 1 only</li><li>Case 2 only</li><li>Case 3 (and when i &gt; r)</li><li>Never</li></ol>
+<p class="explain">Inside the known palindrome, symmetry already decided everything except at the border r.</p>
+</div>
+
+Note:
+⏱ 0:55–1:00.
+
+---
+
+## Manacher step by step
+
+<div class="w" data-widget="manacher" data-text="abaxabaxabb"></div>
+
+Note:
+⏱ 1:00–1:12. Your old example. Step through the first 8 positions slowly and ask for the case number before pressing Next. Then play. Then try "abaccab" (even palindrome) and "aaaaaaaa" (the worst case for expand-around-center): compare the comparison count with n.
+
+---
+
+## Why O(n)?
+
+<div class="cols">
+<div>
+
+- Every successful expansion step at i pushes the right end **r** one position right.
+- r only increases and r &lt; |t| = 2n + 1.
+- Each i has at most one failed comparison.
+
+<p class="big">⇒ O(n) time, O(n) space</p>
+
+</div>
+<div class="card">
+<h4>Same pattern three times</h4>
+<p>KMP (text pointer never goes back), Z-function (Z-box end r only moves right), Manacher (palindrome end r only moves right).</p>
+</div>
+</div>
+
+Note:
+⏱ 1:12–1:20.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="predict" data-answer="7" data-tol="0">
+<p class="q">t = #a#b#a#b#a#b#a# (s = abababa). What is the maximum p[i]?</p>
+<p class="explain">The whole s is a palindrome of length <b>7</b>, centered at the middle 'b' of t.</p>
+</div>
+
+--
+
+<!-- .slide: class="activity" -->
+## Your turn
+
+1. Build t for **s = cbbd** and compute p[i] by hand with Manacher.
+2. Which is the longest palindrome? Where does it start in s?
+3. Count how many character comparisons you made.
+
+<div class="timer" data-seconds="420"></div>
+
+<details><summary>Answers</summary>
+t = #c#b#b#d# → p = [0, 1, 0, 1, 2, 1, 0, 1, 0]. Max p = 2 at i = 4 → "bb", starting at (4 − 2)/2 = 1. Check with the widget.
+</details>
+
+Note:
+⏱ 1:20–1:33.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+## Exit ticket
+
+<div class="quiz" data-answer="2">
+<p class="q">Manacher's algorithm avoids re-comparing characters because…</p>
+<ol><li>it uses a suffix array</li><li>inside the rightmost palindrome, radii are copied from mirror positions, and only the border r is ever expanded</li><li>it hashes all substrings</li><li>it only considers odd palindromes in the original string</li></ol>
+<p class="explain">Symmetry + amortization.</p>
+</div>
+
+Note:
+⏱ 1:33–1:40. Reading: cp-algorithms "Manacher's algorithm"; Manacher (1975).
+
+---
+
+## Takeaways
+
+- O(n³) brute force → O(n²) DP / expand-around-center → **O(n) Manacher**.
+- **# trick**: every palindrome becomes odd; length = radius p[i].
+- Keep the rightmost palindrome [c − p[c], r]; **mirror i' = 2c − i** gives p[i] ≥ min(r − i, p[i']).
+- Three cases; only expansions at the border move r → linear.
+
+<p class="muted small">Next: hashing strings and Rabin–Karp.</p>
+</textarea>
+</section>
+</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/markdown/markdown.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/math/math.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/zoom/zoom.js"></script>
+<script src="../assets/js/widgets.js"></script>
+<script src="../assets/js/widgets-strings.js"></script>
+<script src="../assets/js/course.js"></script>
+<script>Course.init();</script>
+</body>
+</html>

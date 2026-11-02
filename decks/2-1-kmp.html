@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>String Matching and KMP · TC2038</title>
+<meta name="description" content="TC2038 Analysis and Design of Advanced Algorithms — String Matching and KMP">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<link rel="stylesheet" href="../assets/css/course.css">
+</head>
+<body>
+<div class="reveal">
+<div class="slides">
+<!--
+  SLIDES ARE WRITTEN IN MARKDOWN BELOW
+  ---   new horizontal slide        --    new vertical slide (press ↓)
+  Note: everything after this line is a speaker note (press S)
+  Keep HTML blocks (quizzes, widgets) flush-left and without blank lines inside.
+-->
+<section data-markdown data-separator="^---$" data-separator-vertical="^--$" data-separator-notes="^Note:">
+<textarea data-template>
+<!-- .slide: class="title" -->
+<span class="kicker">TC2038 · Unit 2 · Session 2.1</span>
+
+# String matching & KMP
+
+### Never look at the same text character twice (almost)
+
+<p class="byline">Dr. Gildardo Sánchez Ante · Tecnológico de Monterrey<br><span class="tiny">Cormen, Leiserson, Rivest & Stein, <i>Introduction to Algorithms</i>, 3rd ed., ch. 32</span></p>
+
+Note:
+⏱ 0:00–0:02. Unit 2 in five sessions: (2.1) naive matching + KMP, (2.2) Z-function, (2.3) Manacher, (2.4) hashing & Rabin–Karp, (2.5) suffix arrays & longest common substring.
+
+---
+
+<!-- .slide: class="activity" -->
+## Warm-up: Ctrl + F
+
+<div class="cols">
+<div>
+
+Your editor finds "abacab" in a 2 GB log file almost instantly.
+
+- How would **you** do it?
+- How many character comparisons in the worst case?
+
+</div>
+<div class="card">
+<h4>Where it matters</h4>
+<p>grep, text editors, antivirus signatures, intrusion detection, plagiarism detection, DNA search over a 4-letter alphabet (GTTTGAGTGG…), web search.</p>
+</div>
+</div>
+
+<div class="timer" data-seconds="120"></div>
+
+Note:
+⏱ 0:02–0:06. Collect ideas. Almost everyone proposes the naive algorithm. Good — that's our baseline.
+
+---
+
+## Today
+
+<ul class="agenda">
+<li><span class="t">0:06</span> The problem and the naive algorithm</li>
+<li><span class="t">0:20</span> <b>Pulse check 1</b></li>
+<li><span class="t">0:25</span> Borders: prefixes that are also suffixes</li>
+<li><span class="t">0:35</span> The prefix function π</li>
+<li><span class="t">0:50</span> <b>Pulse check 2</b></li>
+<li><span class="t">0:55</span> The KMP matcher and its analysis</li>
+<li><span class="t">1:15</span> <b>Pulse check 3</b> · hands-on</li>
+<li><span class="t">1:33</span> <b>Exit ticket</b></li>
+</ul>
+
+---
+
+## The string-matching problem (CLRS 32)
+
+- Text **T[0..n−1]**, pattern **P[0..m−1]** over an alphabet Σ, usually n ≫ m.
+- P **occurs with shift s** in T if T[s..s+m−1] = P. Such an s is a **valid shift**. <!-- .element: class="fragment" -->
+- Goal: find **all** valid shifts. <!-- .element: class="fragment" -->
+
+<p class="fragment small">Example: T = abacaabaccabacabaabb, P = abacab → the only valid shift is <b>s = 10</b>.</p>
+
+| Algorithm | Preprocessing | Matching |
+|---|---|---|
+| Naive | 0 | O((n − m + 1)·m) |
+| Rabin–Karp | Θ(m) | O((n − m + 1)·m) worst, O(n + m) expected |
+| Finite automaton | O(m·\|Σ\|) | Θ(n) |
+| **Knuth–Morris–Pratt** | **Θ(m)** | **Θ(n)** |
+
+Note:
+⏱ 0:06–0:10. CLRS Fig. 32.2. Rabin–Karp is session 2.4.
+
+---
+
+## The naive algorithm
+
+<div class="w" data-widget="naive"></div>
+
+Note:
+⏱ 0:10–0:18. Your old slides' example: 28 comparisons. Then try T = aaaaaaaaaaaaaaaaaaab, P = aaaab: almost m comparisons at every shift. The waste: after a mismatch we forget everything we just learned about the text.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="3">
+<p class="q">Worst case of the naive algorithm for T = aⁿ and P = aᵐ⁻¹b?</p>
+<ol><li>O(n)</li><li>O(m)</li><li>Θ((n − m + 1)·m)</li><li>O(n log m)</li></ol>
+<p class="explain">Each of the n − m + 1 shifts compares m characters before failing at the final b.</p>
+</div>
+
+--
+
+<!-- .slide: class="checkpoint" -->
+<div class="predict" data-answer="6" data-tol="0">
+<p class="q">The naive algorithm compares T and P = abacab and matches 5 characters before failing on the 6th. How many characters of T did we just "learn" — and then forget?</p>
+<p class="explain"><b>6</b> (5 matches + the mismatched one). KMP keeps that information to decide how far to slide P.</p>
+</div>
+
+Note:
+⏱ 0:20–0:25.
+
+---
+
+## Borders: prefixes that are also suffixes
+
+A **border** of a string is a proper prefix that is also a proper suffix.
+
+<div class="cols">
+<div>
+
+| string | longest border |
+|---|---|
+| abab | ab |
+| ababa | aba |
+| ababac | — (empty) |
+| ababaca | a |
+
+</div>
+<div class="card fragment">
+<h4>Why care?</h4>
+<p>If P[0..j−1] matched and then P[j] fails, the next possible alignment puts the <b>longest border</b> of P[0..j−1] under the text we already matched. No need to re-read it.</p>
+</div>
+</div>
+
+Note:
+⏱ 0:25–0:30. Your slides with "ababaca": go through prefixes and suffixes in a table.
+
+---
+
+## Sliding with a border
+
+<div class="cols">
+<div>
+
+```text
+T:  a b x a b c a b c a b y
+P:        a b c a b y
+                    ↑ mismatch: T[8] = c ≠ P[5] = y
+matched "abcab" → its longest border is "ab"
+P:              a b c a b y
+                    ↑ continue comparing here (i did not move)
+```
+
+</div>
+<div>
+
+<p>The text pointer <b>i</b> never moves backward.</p>
+<p>The pattern pointer <b>j</b> jumps to the border length: <b>j ← π[j − 1]</b>.</p>
+
+</div>
+</div>
+
+Note:
+⏱ 0:30–0:35. Your example with LPS = [0 0 0 1 2 0].
+
+---
+
+## The prefix function π
+
+π[i] = length of the longest proper prefix of P[0..i] that is also a suffix of P[0..i].
+
+<div class="w" data-widget="prefixfn" data-pattern="ababaca"></div>
+
+Note:
+⏱ 0:35–0:45. CLRS example: π(ababaca) = 0 0 1 2 3 0 1. Step and ask: "what is k now? which border are we testing?" The fall-back k ← π[k−1] is KMP applied to the pattern itself.
+
+---
+
+## Computing π in Θ(m)
+
+```cpp [1-2|3|4|5|6]
+vector<int> prefixFunction(const string& P) {
+    int m = P.size();  vector<int> pi(m, 0);
+    for (int i = 1, k = 0; i < m; i++) {
+        while (k > 0 && P[k] != P[i]) k = pi[k - 1];   // fall back to a shorter border
+        if (P[k] == P[i]) k++;                         // extend the border
+        pi[i] = k;
+    }
+    return pi;
+}
+```
+
+<p class="small fragment"><b>Amortized:</b> k grows by at most 1 per iteration (≤ m − 1 total) and every fall-back decreases it → the while loop runs ≤ m times overall.</p>
+
+Note:
+⏱ 0:45–0:50. CLRS 32.4, potential-function argument.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="predict" data-answer="2" data-tol="0">
+<p class="q">P = abcab. What is π[4]?</p>
+<p class="explain">P[0..4] = abcab; its longest border is "ab" → <b>2</b>. Full π = [0, 0, 0, 1, 2].</p>
+</div>
+
+--
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="1">
+<p class="q">π[i] = 0 means…</p>
+<ol><li>P[0..i] has no non-empty border</li><li>P[i] does not appear before i</li><li>the pattern cannot occur in the text</li><li>P[i] = P[0]</li></ol>
+<p class="explain">E.g., "ababac": no proper prefix equals a proper suffix.</p>
+</div>
+
+Note:
+⏱ 0:50–0:55.
+
+---
+
+## The KMP matcher
+
+<div class="w" data-widget="kmp"></div>
+
+Note:
+⏱ 0:55–1:05. Same text as the naive slide: compare the comparison counts. Watch that i never decreases; on mismatch P slides by j − π[j−1]. After a full match, j = π[m−1] so overlapping occurrences are found (try T = aaaaa, P = aa).
+
+---
+
+## The code and the analysis
+
+```cpp
+vector<int> kmpSearch(const string& T, const string& P) {
+    vector<int> pi = prefixFunction(P), res;
+    for (int i = 0, j = 0; i < (int)T.size(); i++) {
+        while (j > 0 && T[i] != P[j]) j = pi[j - 1];
+        if (T[i] == P[j]) j++;
+        if (j == (int)P.size()) { res.push_back(i - j + 1); j = pi[j - 1]; }
+    }
+    return res;
+}
+```
+
+<div class="cols small">
+<div class="card"><h4>Why ≤ 2n comparisons?</h4><p>Each comparison either advances i (≤ n times) or slides P to the right, increasing i − j (≤ n times).</p></div>
+<div class="card"><h4>Total</h4><p>Θ(m) preprocessing + Θ(n) matching = <b>Θ(n + m)</b>, O(m) extra space, works as a stream.</p></div>
+</div>
+
+Note:
+⏱ 1:05–1:12. KMP (1977): Knuth, Morris and Pratt; Morris had used it in a text editor around 1970.
+
+---
+
+## A neat trick: P # T
+
+Compute π of the string **P + '#' + T** (with # not in the alphabet).
+
+<p class="fragment">Every position where π = m marks an occurrence of P in T. One function, no separate matcher.</p>
+
+<p class="fragment small muted">Same idea with the Z-function next session: z of P#T.</p>
+
+Note:
+⏱ 1:12–1:15.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="4">
+<p class="q">In KMP, after a mismatch at pattern position j > 0, the text pointer i…</p>
+<ol><li>goes back to i − j + 1</li><li>goes back j positions</li><li>advances by π[j − 1]</li><li>stays where it is; only j changes to π[j − 1]</li></ol>
+<p class="explain">That's the whole point: the text is read left to right exactly once.</p>
+</div>
+
+--
+
+<!-- .slide: class="activity" -->
+## Your turn
+
+1. Compute π for **P = aabaaab**.
+2. Run KMP for this P on **T = aabaaabaaab**: list the valid shifts.
+3. Count comparisons and compare with the naive algorithm.
+
+<div class="timer" data-seconds="480"></div>
+
+<details><summary>Answers</summary>
+1) π = [0, 1, 0, 1, 2, 2, 3]. 2) Shifts 0 and 4 (overlapping occurrences). 3) Check both counts with the widgets on the previous slides (type T and P and press Run).
+</details>
+
+Note:
+⏱ 1:15–1:33.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+## Exit ticket
+
+<div class="quiz" data-answer="2">
+<p class="q">KMP runs in Θ(n + m) because…</p>
+<ol><li>it compares characters in parallel</li><li>the text pointer never moves back and the fall-backs are amortized against the advances</li><li>it uses hashing</li><li>it skips half of the text</li></ol>
+<p class="explain">Amortized analysis: ≤ 2n comparisons in the matcher, ≤ 2m in the preprocessing.</p>
+</div>
+
+Note:
+⏱ 1:33–1:40. Muddiest point. Reading: CLRS 32.1 and 32.4.
+
+---
+
+## Takeaways
+
+- Naive matching wastes what it learned: Θ((n − m + 1)m) worst case.
+- A **border** is a proper prefix that is also a suffix; **π[i]** stores the longest one for each prefix of P.
+- **KMP**: on mismatch, j ← π[j − 1]; i never goes back → **Θ(n + m)**.
+- Trick: π of **P#T** finds all occurrences.
+
+<p class="muted small">Next: the Z-function — another linear-time view of the same idea.</p>
+</textarea>
+</section>
+</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/markdown/markdown.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/math/math.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/zoom/zoom.js"></script>
+<script src="../assets/js/widgets.js"></script>
+<script src="../assets/js/widgets-strings.js"></script>
+<script src="../assets/js/course.js"></script>
+<script>Course.init();</script>
+</body>
+</html>

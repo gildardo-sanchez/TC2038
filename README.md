@@ -34,6 +34,8 @@ No hay paso de compilación: son HTML estáticos. Reveal.js, KaTeX y highlight.j
 index.html                  ← portada del curso con la lista de sesiones
 decks/                      ← una sesión por archivo, numeradas por unidad
   1-1-algorithms.html … 1-6-branch-and-bound.html        (Unidad 1)
+  2-1-kmp.html … 2-5-suffix-arrays-lcs.html              (Unidad 2)
+  3-1-graphs-tries.html … 3-6-max-flow.html              (Unidad 3)
   4-1-geometry-intro.html … 4-5-delaunay-randomized.html (Unidad 4)
   5-1-search-bitmasks.html … 5-4-local-search.html       (Unidad 5)
   02-….html, 22-….html, …   ← redirecciones de los nombres anteriores (no borrar: mantienen vivos los enlaces viejos)
@@ -41,6 +43,8 @@ assets/
   css/course.css            ← tema minimalista (claro/oscuro) y estilos de widgets
   js/course.js              ← arranque de Reveal + quizzes, "predict", temporizador, atajos
   js/widgets.js             ← animaciones interactivas (ver catálogo abajo)
+  js/widgets-strings.js     ← animaciones de cadenas (Unidad 2)
+  js/widgets-graphs.js      ← animaciones de grafos (Unidad 3)
   js/widgets-geometry.js    ← animaciones de geometría computacional (Unidad 4)
   js/widgets-search.js      ← animaciones de búsqueda avanzada (Unidad 5)
 ```
@@ -187,5 +191,47 @@ Requieren cargar también `assets/js/widgets-search.js` (ya incluido en las sesi
 
 ### Numeración
 
-Las sesiones se numeran **unidad.sesión** (1.1, 1.2 … 4.1 … 5.4), dejando lugar para las unidades 2 y 3.
+Las sesiones se numeran **unidad.sesión** (1.1, 1.2 … 4.1 … 5.4), (Unidades 1 a 5).
 Para una sesión nueva usa el mismo patrón de nombre, por ejemplo `decks/2-1-kmp.html`, y agrégala a `index.html`.
+
+### Widgets de cadenas (Unidad 2)
+
+Requieren cargar también `assets/js/widgets-strings.js` (ya incluido en las sesiones 2.1–2.5).
+Todos tienen campos de texto para probar con tus propios ejemplos y el botón **Run**.
+
+| `data-widget` | Qué muestra | Atributos |
+|---|---|---|
+| `naive` | Búsqueda ingenua, comparación por comparación | `data-text`, `data-pattern` |
+| `prefixfn` | Construcción de la función de prefijos π | `data-pattern` |
+| `kmp` | Búsqueda KMP con P deslizándose sobre T | `data-text`, `data-pattern` |
+| `zfunc` | Función Z con la caja Z [l, r); modo búsqueda P#s | `data-text`, `data-mode="plain\|match"`, `data-pattern` |
+| `manacher` | Manacher sobre la cadena con #, espejos y casos | `data-text` |
+| `rabinkarp` | Rabin–Karp con hash rodante y falsos positivos | `data-text`, `data-pattern`, `data-q` |
+| `hashcalc` | Hash polinomial paso a paso (Horner) | `data-text`, `data-p`, `data-m` |
+| `birthday` | Probabilidad de colisión (paradoja del cumpleaños) | — |
+| `suffixarray` | Suffix array por duplicación, LCP y búsqueda | `data-text`, `data-query` |
+| `lcsdp` | Tabla DP de la subcadena común más larga | `data-a`, `data-b` |
+| `lcssa` | Subcadena común más larga con suffix array de X#Y% | `data-a`, `data-b` |
+
+### Widgets de grafos (Unidad 3)
+
+Requieren cargar también `assets/js/widgets-graphs.js` (ya incluido en las sesiones 3.1–3.6).
+
+| `data-widget` | Qué muestra | Atributos |
+|---|---|---|
+| `graphrep` | Matriz y listas de adyacencia; clic en un vértice; dirigido/no dirigido | `data-directed="1"` |
+| `traverse` | BFS, DFS (tiempos d/f) y orden topológico (CLRS) | `data-mode="bfs\|dfs\|topo"` |
+| `trie` | Trie: insertar, buscar, prefijo, borrar | `data-words="bear,bell,…"` |
+| `dijkstra` | Dijkstra con tabla d/π; ejemplo con arista negativa | `data-preset="clrs\|neg"` |
+| `floyd` | Floyd–Warshall sobre tu matriz 4×4 | — |
+| `knapdp` | Tabla DP de la mochila 0/1 y reconstrucción | `data-preset="a\|b"` |
+| `tspgraph` | TSP en K₅: vecino más cercano, NN repetitivo, cheapest link, fuerza bruta | — |
+| `mst` | Prim y Kruskal sobre el grafo de CLRS (peso 37) | `data-algo="prim\|kruskal"` |
+| `coloring` | Coloreo greedy, Welsh–Powell y backtracking | `data-preset="crown\|wheel\|petersen"` |
+| `obst` | Árbol binario de búsqueda óptimo (CLRS 15.5) | — |
+| `maxflow` | Ford–Fulkerson con BFS (Edmonds–Karp) o DFS, corte mínimo | `data-mode="bfs\|dfs"` |
+| `pathcover` | Cobertura mínima por caminos en un DAG = \|V\| − emparejamiento máximo | — |
+
+> Dentro de fórmulas `$$…$$`, si hay dos o más subíndices `_`, escríbelos como `\_` para que Markdown no los convierta en cursivas.
+
+> Evita escribir el signo `$` en el texto de las diapositivas: KaTeX lo interpreta como inicio de una fórmula.

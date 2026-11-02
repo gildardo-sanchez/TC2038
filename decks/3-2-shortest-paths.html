@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shortest Paths: Dijkstra and Floyd-Warshall · TC2038</title>
+<meta name="description" content="TC2038 Analysis and Design of Advanced Algorithms — Shortest Paths: Dijkstra and Floyd-Warshall">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<link rel="stylesheet" href="../assets/css/course.css">
+</head>
+<body>
+<div class="reveal">
+<div class="slides">
+<!--
+  SLIDES ARE WRITTEN IN MARKDOWN BELOW
+  ---   new horizontal slide        --    new vertical slide (press ↓)
+  Note: everything after this line is a speaker note (press S)
+  Keep HTML blocks (quizzes, widgets) flush-left and without blank lines inside.
+-->
+<section data-markdown data-separator="^---$" data-separator-vertical="^--$" data-separator-notes="^Note:">
+<textarea data-template>
+<!-- .slide: class="title" -->
+<span class="kicker">TC2038 · Unit 3 · Session 3.2</span>
+
+# Shortest paths
+
+### Dijkstra (one source) and Floyd–Warshall (all pairs)
+
+<p class="byline">Dr. Gildardo Sánchez Ante · Tecnológico de Monterrey<br><span class="tiny">CLRS 3rd ed., ch. 24 (single source) and ch. 25 (all pairs)</span></p>
+
+Note:
+⏱ 0:00–0:02. Syllabus 3.3 and 3.4.
+
+---
+
+<!-- .slide: class="activity" -->
+## Warm-up: a wedding in San Miguel de Allende
+
+<div class="cols">
+<div>
+
+A friend lives in **Guadalajara** and is invited to a wedding in **San Miguel de Allende**. She has a road map with the distance of every road segment between towns.
+
+- How would you find the shortest route?
+- How many routes would "try them all" examine?
+
+</div>
+<div class="card">
+<h4>Think about it</h4>
+<p>Even disallowing routes with cycles, the number of routes is <b>exponential</b> in the number of towns.</p>
+<p class="muted">If the shortest route passes through León, what can you say about its piece from Guadalajara to León?</p>
+</div>
+</div>
+
+<div class="timer" data-seconds="150"></div>
+
+Note:
+⏱ 0:02–0:07. Your motivation slide. The last question is the key: subpaths of shortest paths are shortest paths (optimal substructure, CLRS Lemma 24.1). That is what makes both greedy (Dijkstra) and DP (Floyd) work.
+
+---
+
+## Today
+
+<ul class="agenda">
+<li><span class="t">0:07</span> The problem, negative weights, relaxation</li>
+<li><span class="t">0:17</span> Dijkstra's algorithm</li>
+<li><span class="t">0:35</span> <b>Pulse check 1</b></li>
+<li><span class="t">0:40</span> Correctness, running time, when it fails</li>
+<li><span class="t">0:50</span> All pairs: Floyd–Warshall</li>
+<li><span class="t">1:10</span> <b>Pulse check 2</b></li>
+<li><span class="t">1:15</span> Hands-on</li>
+<li><span class="t">1:33</span> <b>Exit ticket</b></li>
+</ul>
+
+---
+
+## The shortest-paths problem (CLRS 24)
+
+- Weighted digraph G = (V, E, w), w: E → ℝ. Path weight w(p) = sum of its edge weights.
+- **δ(u, v)** = minimum weight over all paths u ⇝ v (∞ if none). <!-- .element: class="fragment" -->
+- Weights can be distance, time, cost, risk… anything that **adds up** along a path. <!-- .element: class="fragment" -->
+
+<div class="cols fragment">
+<div class="card"><h4>Negative cycles</h4><p>If a cycle has negative total weight and is reachable, going around it again keeps lowering the cost → δ is <b>undefined</b> (−∞).</p></div>
+<div class="card"><h4>Variants</h4><p>Single source (Dijkstra, Bellman–Ford) · single pair · single destination · <b>all pairs</b> (Floyd–Warshall, Johnson).</p></div>
+</div>
+
+Note:
+⏱ 0:07–0:12. Mention that shortest paths never repeat a vertex when there are no negative cycles: at most |V| − 1 edges.
+
+---
+
+## Relaxation: the one operation
+
+<div class="cols">
+<div>
+
+```cpp
+// d[v]: best distance found so far, p[v]: predecessor
+void relax(int u, int v, int w) {
+    if (d[u] + w < d[v]) {
+        d[v] = d[u] + w;
+        p[v] = u;
+    }
+}
+```
+
+<p class="small">d[v] is always an <b>upper bound</b> on δ(s, v) and only decreases.</p>
+
+</div>
+<div class="card">
+<h4>Example (CLRS Fig. 24.9)</h4>
+<p>d[u] = 5, w(u, v) = 2, d[v] = 9 → relax → d[v] = 7.</p>
+<p>d[u] = 5, w(u, v) = 2, d[v] = 6 → no change.</p>
+<p class="muted">Algorithms differ only in <b>which edges they relax, and in what order</b>.</p>
+</div>
+</div>
+
+Note:
+⏱ 0:12–0:17.
+
+---
+
+## Dijkstra's algorithm (1959)
+
+<div class="cols">
+<div>
+
+1. d[s] = 0, all other d = ∞; S = ∅.
+2. Repeat: take the vertex **u ∉ S with the smallest d** (EXTRACT-MIN), add it to S.
+3. Relax every edge leaving u.
+
+<p class="small">Greedy: once a vertex is extracted, its d is final — <b>provided all weights are ≥ 0</b>.</p>
+
+</div>
+<div class="card">
+<h4>Edsger W. Dijkstra (1930–2002)</h4>
+<p>Theoretical physicist turned programmer at the Mathematisch Centrum, Amsterdam; later at UT Austin. Turing Award 1972. He designed the algorithm in about twenty minutes in a café, without pencil and paper.</p>
+</div>
+</div>
+
+Note:
+⏱ 0:17–0:20. From your slide about Dijkstra. You can stop early when the target is extracted.
+
+---
+
+## Dijkstra, step by step
+
+<div class="w" data-widget="dijkstra" data-preset="clrs" data-h="300"></div>
+
+Note:
+⏱ 0:20–0:35. CLRS Fig. 24.6. Order of extraction: s, y, z, t, x. Final d: s 0, t 8, x 9, y 5, z 7. Ask before each step: "who comes out of the queue next?". The green flash is a successful relaxation, red a useless one.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="predict" data-answer="9" data-tol="0">
+<p class="q">In the CLRS example, what is the final d[x]?</p>
+<p class="explain">s → y → t → x = 5 + 3 + 1 = <b>9</b> (the direct route s → t → x costs 11).</p>
+</div>
+
+--
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="3">
+<p class="q">Which data structure makes Dijkstra run in O((V + E) log V)?</p>
+<ol><li>A FIFO queue</li><li>A stack</li><li>A binary min-heap keyed by d</li><li>A sorted array of edges</li></ol>
+<p class="explain">V EXTRACT-MINs and up to E DECREASE-KEYs, each O(log V). A plain array gives O(V²) (good for dense graphs); a Fibonacci heap O(E + V log V).</p>
+</div>
+
+Note:
+⏱ 0:35–0:40.
+
+---
+
+## Why it works — and when it doesn't
+
+**Invariant:** when u is extracted from the queue, d[u] = δ(s, u).
+
+<p>Suppose not: the true shortest path to u leaves S through some edge (x, y) with y ∉ S. Then d[y] = δ(s, y) ≤ δ(s, u) &lt; d[u] — <b>using w ≥ 0</b> — so y would have been extracted before u. Contradiction.</p>
+
+<p class="fragment">The proof breaks if some weights are negative. Press ↓ to see it fail.</p>
+
+--
+
+## A negative edge breaks Dijkstra
+
+<div class="w" data-widget="dijkstra" data-preset="neg" data-h="300"></div>
+
+Note:
+⏱ 0:40–0:46. Press End on the right widget: Dijkstra finalizes b with 2, but a → c → b = 1. With negative edges use Bellman–Ford: relax all edges V − 1 times, O(VE), and it also detects negative cycles.
+
+---
+
+## Running time
+
+| priority queue | EXTRACT-MIN | DECREASE-KEY | total |
+|---|---|---|---|
+| unsorted array | O(V) | O(1) | **O(V²)** |
+| binary heap | O(log V) | O(log V) | **O((V + E) log V)** |
+| Fibonacci heap | O(log V) amortized | O(1) amortized | **O(E + V log V)** |
+
+<p class="small fragment">In C++ the usual trick: priority_queue of (d, v) pairs with "lazy deletion" — push again instead of DECREASE-KEY, and skip stale entries when popped.</p>
+
+```cpp
+priority_queue<pair<long long,int>, vector<pair<long long,int>>, greater<>> pq;
+d[s] = 0;  pq.push({0, s});
+while (!pq.empty()) {
+    auto [du, u] = pq.top();  pq.pop();
+    if (du > d[u]) continue;                 // stale entry
+    for (auto [v, w] : adj[u])
+        if (d[u] + w < d[v]) { d[v] = d[u] + w;  pq.push({d[v], v}); }
+}
+```
+
+Note:
+⏱ 0:46–0:50.
+
+---
+
+<!-- .slide: class="divider" -->
+## Part 2 · All pairs
+
+Floyd–Warshall: dynamic programming over intermediate vertices
+
+---
+
+## The subproblems
+
+<div class="cols">
+<div>
+
+Number the vertices 1..n. Let
+
+**d⁽ᵏ⁾[i][j]** = weight of a shortest path i ⇝ j whose **intermediate** vertices all belong to {1, …, k}.
+
+- d⁽⁰⁾ = W (direct edges only). <!-- .element: class="fragment" -->
+- d⁽ⁿ⁾ = the answer. <!-- .element: class="fragment" -->
+
+</div>
+<div class="fragment">
+
+Either the best path avoids k, or it goes through k once:
+
+$$d^{(k)}\_{ij} = \min\left(d^{(k-1)}\_{ij},\quad d^{(k-1)}\_{ik} + d^{(k-1)}\_{kj}\right)$$
+
+<p class="small">Both halves i ⇝ k and k ⇝ j only use {1, …, k − 1}: optimal substructure.</p>
+
+</div>
+</div>
+
+Note:
+⏱ 0:50–0:56. Your slides 10–13. Works with negative edges (no negative cycles); a negative diagonal entry at the end reveals a negative cycle.
+
+---
+
+## Floyd–Warshall on your example
+
+<div class="w" data-widget="floyd" data-h="320"></div>
+
+Note:
+⏱ 0:56–1:06. Your matrix: W = [[0,3,∞,5],[2,0,∞,4],[∞,1,0,∞],[∞,∞,2,0]]. Final: [[0,3,7,5],[2,0,6,4],[3,1,0,5],[5,3,2,0]]. Highlight the row and column k (orange) — the only values the update reads. That's why we can update in place with a single matrix.
+
+---
+
+## The code: three loops
+
+```cpp
+// d starts as W (INF where there is no edge, 0 on the diagonal)
+for (int k = 0; k < n; k++)
+    for (int i = 0; i < n; i++)
+        for (int j = 0; j < n; j++)
+            if (d[i][k] < INF && d[k][j] < INF && d[i][k] + d[k][j] < d[i][j])
+                d[i][j] = d[i][k] + d[k][j];
+```
+
+<div class="cols small">
+<div class="card"><h4>Cost</h4><p><b>Θ(n³)</b> time, Θ(n²) space. Tiny constant, trivially correct to code.</p></div>
+<div class="card"><h4>vs. n × Dijkstra</h4><p>O(V·E log V): better for sparse graphs with w ≥ 0. Johnson's algorithm reweights to allow negative edges.</p></div>
+<div class="card"><h4>Also gives</h4><p>Transitive closure (with OR/AND: Warshall), the path itself (store next[i][j]), negative-cycle detection.</p></div>
+</div>
+
+Note:
+⏱ 1:06–1:10. The k loop MUST be the outermost. Common bug: putting it inside.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="predict" data-answer="5" data-tol="0">
+<p class="q">In your 4-vertex example, what is the final d[3][4]?</p>
+<p class="explain">3 → 2 → 4 = 1 + 4 = <b>5</b>. It appears when k = 2.</p>
+</div>
+
+--
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="2">
+<p class="q">Why must the k loop be the outermost one?</p>
+<ol><li>For cache efficiency only</li><li>d⁽ᵏ⁾ needs all of d⁽ᵏ⁻¹⁾: every pair must be finished with intermediates {1..k−1} before k is allowed</li><li>Because i and j are symmetric</li><li>It doesn't matter</li></ol>
+<p class="explain">With k inside, d[i][k] might not yet be final when you use it.</p>
+</div>
+
+Note:
+⏱ 1:10–1:15.
+
+---
+
+<!-- .slide: class="activity" -->
+## Your turn
+
+<div class="cols">
+<div>
+
+Directed graph: A→B 4, A→C 1, C→B 2, B→D 1, C→D 5, D→A 3.
+
+1. Run **Dijkstra from A** by hand. Give the extraction order and final distances.
+2. Write W and compute **D⁽¹⁾** of Floyd–Warshall (k = A).
+3. Which algorithm would you use for 5,000 cities and all pairs? Why?
+
+</div>
+<div>
+
+<div class="timer" data-seconds="600"></div>
+
+<details><summary>Answers</summary>
+1) Order A(0), C(1), B(3), D(4); paths A→C, A→C→B, A→C→B→D. 2) Row D gains D→A→B = 7 and D→A→C = 4; everything else unchanged. 3) Floyd: 1.25·10¹¹ basic steps — fine offline in C++; with non-negative weights on a sparse road graph, 5,000 × Dijkstra is much faster.
+</details>
+
+</div>
+</div>
+
+Note:
+⏱ 1:15–1:33. Walk around. Let them check item 1 by reasoning with relaxations.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+## Exit ticket
+
+<div class="quiz" data-answer="4">
+<p class="q">You need shortest paths from one source in a graph that has some negative edges but no negative cycles. Use…</p>
+<ol><li>Dijkstra with a binary heap</li><li>BFS</li><li>Prim's algorithm</li><li>Bellman–Ford (or Floyd–Warshall if you also want all pairs)</li></ol>
+<p class="explain">Dijkstra's greedy choice assumes w ≥ 0.</p>
+</div>
+
+Note:
+⏱ 1:33–1:40. Reading: CLRS 24.1, 24.3, 25.2.
+
+---
+
+## Takeaways
+
+- **Relaxation** is the common engine; algorithms differ in the order.
+- **Dijkstra**: greedy, needs **w ≥ 0**; O((V + E) log V) with a heap, O(V²) with an array.
+- **Negative edges** → Bellman–Ford O(VE); negative cycles make δ undefined.
+- **Floyd–Warshall**: DP over allowed intermediates, **Θ(n³)**, k outermost.
+
+<p class="muted small">Next: two classic optimization problems — 0/1 knapsack and the traveling salesman.</p>
+</textarea>
+</section>
+</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/markdown/markdown.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/math/math.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/zoom/zoom.js"></script>
+<script src="../assets/js/widgets.js"></script>
+<script src="../assets/js/widgets-graphs.js"></script>
+<script src="../assets/js/course.js"></script>
+<script>Course.init();</script>
+</body>
+</html>

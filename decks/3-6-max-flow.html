@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maximum Flow and Path Covers · TC2038</title>
+<meta name="description" content="TC2038 Analysis and Design of Advanced Algorithms — Maximum Flow and Path Covers">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<link rel="stylesheet" href="../assets/css/course.css">
+</head>
+<body>
+<div class="reveal">
+<div class="slides">
+<!--
+  SLIDES ARE WRITTEN IN MARKDOWN BELOW
+  ---   new horizontal slide        --    new vertical slide (press ↓)
+  Note: everything after this line is a speaker note (press S)
+  Keep HTML blocks (quizzes, widgets) flush-left and without blank lines inside.
+-->
+<section data-markdown data-separator="^---$" data-separator-vertical="^--$" data-separator-notes="^Note:">
+<textarea data-template>
+<!-- .slide: class="title" -->
+<span class="kicker">TC2038 · Unit 3 · Session 3.6</span>
+
+# Maximum flow
+
+### Ford–Fulkerson, residual networks, min cuts — and covering a DAG with paths
+
+<p class="byline">Dr. Gildardo Sánchez Ante · Tecnológico de Monterrey<br><span class="tiny">CLRS 3rd ed., ch. 26 · Ford & Fulkerson (1956) · Edmonds & Karp (1972)</span></p>
+
+Note:
+⏱ 0:00–0:02. Syllabus 3.11 (maximum flow) and 3.2 (minimum path cover in a DAG), which is a beautiful application of matching = flow. We close the unit.
+
+---
+
+<!-- .slide: class="activity" -->
+## Warm-up: how much can you ship?
+
+<div class="cols">
+<div>
+
+A factory in Vancouver (s) ships boxes to a warehouse in Winnipeg (t) through intermediate cities. Road (u, v) can take at most **c(u, v)** boxes per day.
+
+- What limits the total? 
+- Is "the smallest capacity on the map" the answer?
+
+</div>
+<div class="card">
+<h4>Networks everywhere</h4>
+<p>Communication (packets over links), circuits (current), hydraulic (fluid in pipes), transportation (vehicles on roads), financial (money between banks).</p>
+</div>
+</div>
+
+<div class="timer" data-seconds="120"></div>
+
+Note:
+⏱ 0:02–0:06. CLRS Fig. 26.1, the Lucky Puck company. The answer is a bottleneck, but a bottleneck of a whole "wall" (a cut), not of a single edge.
+
+---
+
+## Today
+
+<ul class="agenda">
+<li><span class="t">0:06</span> Flow networks and flows</li>
+<li><span class="t">0:15</span> Residual network and augmenting paths</li>
+<li><span class="t">0:27</span> <b>Pulse check 1</b></li>
+<li><span class="t">0:32</span> Ford–Fulkerson / Edmonds–Karp in action</li>
+<li><span class="t">0:48</span> Max-flow min-cut theorem</li>
+<li><span class="t">0:55</span> <b>Pulse check 2</b></li>
+<li><span class="t">1:00</span> Matching and minimum path cover in a DAG</li>
+<li><span class="t">1:15</span> Hands-on · exit ticket</li>
+</ul>
+
+---
+
+## Flow networks (CLRS 26.1)
+
+<div class="cols">
+<div>
+
+- Directed G = (V, E), **capacity c(u, v) ≥ 0**, a **source s** and a **sink t**.
+- A **flow** f assigns f(u, v) to each edge with: <!-- .element: class="fragment" -->
+  - **capacity constraint**: 0 ≤ f(u, v) ≤ c(u, v)
+  - **conservation**: for every v ≠ s, t, flow in = flow out
+- **Value**: |f| = flow out of s − flow into s. <!-- .element: class="fragment" -->
+
+</div>
+<div class="card fragment">
+<h4>Notation</h4>
+<p>Edges are labeled <b>f / c</b>: "2 / 5" means 2 units on an edge of capacity 5 — the slash is not a division.</p>
+<p class="muted">Goal: a flow of maximum value.</p>
+</div>
+</div>
+
+Note:
+⏱ 0:06–0:15. CLRS assumes no antiparallel edges for simplicity (split one with an extra vertex); our widget handles them anyway.
+
+---
+
+## The residual network G_f
+
+<div class="cols">
+<div>
+
+For each edge (u, v) carrying flow f(u, v):
+
+- **forward** residual edge u → v with c_f = c(u, v) − f(u, v) — how much more we can push;
+- **backward** residual edge v → u with c_f = f(u, v) — how much we can **cancel**. <!-- .element: class="fragment" -->
+
+<p class="fragment">An <b>augmenting path</b> is any s ⇝ t path in G_f. Its <b>bottleneck</b> c_f(p) = min residual capacity on it.</p>
+
+</div>
+<div class="card fragment">
+<h4>Why backward edges?</h4>
+<p>A greedy "push along any path" can get stuck in a bad choice. Backward edges let a later path <b>undo</b> part of an earlier decision and reroute it.</p>
+<p class="muted small">Without them: no guarantee of optimality.</p>
+</div>
+</div>
+
+Note:
+⏱ 0:15–0:27. Your slides 14–26. Example: edge 8/10 gives forward 2 and backward 8. Draw one residual network on the board.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="2">
+<p class="q">An edge (u, v) has capacity 7 and carries flow 5. In the residual network we get…</p>
+<ol><li>u → v with 5 and v → u with 2</li><li>u → v with 2 and v → u with 5</li><li>only u → v with 2</li><li>only v → u with 7</li></ol>
+<p class="explain">Push 2 more forward, or cancel up to the 5 already sent.</p>
+</div>
+
+--
+
+<!-- .slide: class="checkpoint" -->
+<div class="predict" data-answer="4" data-tol="0">
+<p class="q">An augmenting path has residual capacities 5, 4, 5. By how much does the flow increase?</p>
+<p class="explain">The bottleneck: min(5, 4, 5) = <b>4</b> (your slide 26: G with |f| = 19 becomes 23).</p>
+</div>
+
+Note:
+⏱ 0:27–0:32.
+
+---
+
+## Ford–Fulkerson in action
+
+<div class="w" data-widget="maxflow" data-h="330"></div>
+
+Note:
+⏱ 0:32–0:45. CLRS Fig. 26.1/26.6 network. Edge thickness = flow; red labels = saturated edges. BFS mode: three shortest augmenting paths (12, 4, 7) → 23. Then switch to DFS mode: the third path s → v2 → v3 → t uses the BACKWARD residual edge v2 → v3 (dashed red), cancelling 4 units that the first path had pushed along v3 → v2. Same final value 23. At the end the green vertices are those reachable from s in G_f: the edges leaving them (orange) are a minimum cut of capacity 23.
+
+---
+
+## The method and its cost
+
+<div class="cols">
+<div>
+
+```text
+FORD-FULKERSON(G, s, t)
+  f = 0 on every edge
+  while there is an augmenting path p in G_f
+      b = min residual capacity on p
+      for each edge of p
+          if forward:  f(u, v) += b
+          else:        f(v, u) -= b
+  return f
+```
+
+</div>
+<div>
+
+| path choice | time |
+|---|---|
+| any (DFS), integer capacities | O(E·\|f*\|) |
+| shortest by #edges (**Edmonds–Karp**, BFS) | **O(V·E²)** |
+| Dinic (blocking flows) | O(V²·E) |
+| push–relabel | O(V³) |
+
+<p class="small">|f*| can be huge: with capacities 10⁹ a bad DFS may need 2·10⁹ augmentations of 1 unit. BFS avoids this.</p>
+
+</div>
+</div>
+
+Note:
+⏱ 0:45–0:48. Integer capacities → integer max flow (integrality theorem): this is what makes the matching reduction work. With irrational capacities, plain FF may not even terminate.
+
+---
+
+## Max-flow min-cut theorem
+
+<div class="cols">
+<div>
+
+- A **cut** (S, T): s ∈ S, t ∈ T. Its capacity c(S, T) = sum of capacities of edges from S to T.
+- Every flow ≤ every cut: **|f| ≤ c(S, T)**. <!-- .element: class="fragment" -->
+- **Theorem (Ford & Fulkerson, 1956)**: the following are equivalent: <!-- .element: class="fragment" -->
+  1. f is a maximum flow;
+  2. G_f has no augmenting path;
+  3. |f| = c(S, T) for some cut.
+
+</div>
+<div class="card fragment">
+<h4>Bonus: you get the cut for free</h4>
+<p>When FF stops, S = vertices reachable from s in G_f. All edges S → T are saturated and all edges T → S carry 0.</p>
+<p class="muted">In the example: S = {s, v1, v2, v4}, cut edges v1→v3 (12), v4→v3 (7), v4→t (4) → 23.</p>
+</div>
+</div>
+
+Note:
+⏱ 0:48–0:55. Duality: maximizing a flow = minimizing a cut. Min cut applications: network reliability, image segmentation (foreground/background), project selection.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="1">
+<p class="q">You find a flow of value 17 and a cut of capacity 17. Then…</p>
+<ol><li>the flow is maximum and the cut is minimum</li><li>the flow could still grow</li><li>there is a cut of capacity 16</li><li>there is a negative cycle</li></ol>
+<p class="explain">Every flow ≤ every cut, so equality certifies both are optimal.</p>
+</div>
+
+--
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="3">
+<p class="q">Why does Edmonds–Karp use BFS to find augmenting paths?</p>
+<ol><li>BFS finds the path with the largest bottleneck</li><li>DFS cannot find paths in residual networks</li><li>Shortest paths make the number of augmentations O(VE), independent of the capacities</li><li>BFS avoids backward edges</li></ol>
+<p class="explain">Distances in G_f never decrease and each edge can be critical O(V) times (CLRS Lemma 26.7, Theorem 26.8).</p>
+</div>
+
+Note:
+⏱ 0:55–1:00.
+
+---
+
+<!-- .slide: class="divider" -->
+## Part 2 · Covering a DAG with paths
+
+Syllabus 3.2: minimum path cover in a directed acyclic graph
+
+---
+
+## The problem
+
+<div class="cols">
+<div>
+
+Given a DAG, find the **fewest vertex-disjoint paths** such that every vertex lies on exactly one path.
+
+<p class="fragment">Example: tasks with "must follow" constraints, one worker per path — how many workers? Airline scheduling: flights = vertices, "same plane can do u then v" = edges → how many planes?</p>
+
+</div>
+<div class="card fragment">
+<h4>Key idea</h4>
+<p>Start with |V| paths of length 0. Each edge we "use" to continue a path <b>merges two paths</b> into one. Each vertex can have at most one successor and one predecessor on its path…</p>
+<p><b>…that is a bipartite matching!</b></p>
+</div>
+</div>
+
+Note:
+⏱ 1:00–1:05.
+
+---
+
+## Path cover = |V| − maximum matching
+
+<div class="w" data-widget="pathcover" data-h="320"></div>
+
+Note:
+⏱ 1:05–1:13. Left copy v_out, right copy v_in; DAG edge u → v becomes u_out — v_in. Matching edges = "v follows u on the same path". Maximum matching 5 → 7 − 5 = 2 paths: 1→2→4→6 and 3→5→7. The matching itself is a max flow: s → every v_out (cap 1), v_in → t (cap 1), middle edges cap 1. With Hopcroft–Karp: O(E√V).
+
+---
+
+## Matching as a flow
+
+<div class="cols">
+<div>
+
+```text
+s ──1──► u_out ──1──► v_in ──1──► t
+```
+
+- Unit capacities: each u_out sends at most one unit → **one successor**; each v_in receives at most one → **one predecessor**.
+- Integer max flow = maximum matching (integrality theorem). <!-- .element: class="fragment" -->
+- Minimum path cover = **|V| − |M|**. <!-- .element: class="fragment" -->
+
+</div>
+<div class="card fragment">
+<h4>Variants</h4>
+<p>If paths may <b>share</b> vertices: first take the transitive closure (Floyd–Warshall / Warshall from session 3.2), then do the same. Its size equals the largest antichain — <b>Dilworth's theorem</b> (1950).</p>
+</div>
+</div>
+
+Note:
+⏱ 1:13–1:15. Nice way to close the unit: it ties together BFS (augmenting paths), Floyd (closure), flows and matching.
+
+---
+
+<!-- .slide: class="activity" -->
+## Your turn
+
+<div class="cols">
+<div>
+
+1. Network: s→a 10, s→b 5, a→b 15, a→t 5, b→t 10. Run Edmonds–Karp by hand. Max flow? A minimum cut?
+2. DAG: 1→2, 2→3, 1→4, 4→3, 3→5. Minimum path cover? Show the matching.
+3. Why does the reduction in (2) fail if the graph has a cycle?
+
+</div>
+<div>
+
+<div class="timer" data-seconds="540"></div>
+
+<details><summary>Answers</summary>
+1) Paths s-a-t (5), s-b-t (5), s-a-b-t (5) → 15. Cuts of capacity 15: ({s}, rest) and ({s, a, b}, {t}). 2) Max matching 3 (1→2, 2→3, 3→5) → 5 − 3 = 2 paths: 1→2→3→5 and 4. 3) The matching could close a cycle (u→v→u), which is not a path.
+</details>
+
+</div>
+</div>
+
+Note:
+⏱ 1:15–1:32.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+## Exit ticket
+
+<div class="quiz" data-answer="4">
+<p class="q">Which statement is TRUE?</p>
+<ol><li>The max flow equals the smallest capacity of any edge</li><li>Ford–Fulkerson never decreases the flow on an edge</li><li>A DAG with 10 vertices and a maximum matching of 4 can be covered with 4 paths</li><li>When no augmenting path exists in G_f, the flow is maximum and the reachable set from s gives a minimum cut</li></ol>
+<p class="explain">(2) is false thanks to backward edges; (3) needs 10 − 4 = 6 paths.</p>
+</div>
+
+Note:
+⏱ 1:32–1:40. Reading: CLRS 26.1–26.3. End of Unit 3: tries, traversals, shortest paths, knapsack, TSP, MST, coloring, optimal BST, flows, path cover.
+
+---
+
+## Takeaways
+
+- **Flow**: capacity + conservation; edges labeled f / c.
+- **Residual network**: forward c − f, backward f (cancel). Augment along s ⇝ t paths by the bottleneck.
+- **Edmonds–Karp** (BFS): **O(VE²)**. **Max flow = min cut**.
+- **Minimum path cover in a DAG = |V| − maximum bipartite matching** (a unit-capacity max flow).
+
+<p class="muted small">End of Unit 3. Next unit: computational geometry.</p>
+</textarea>
+</section>
+</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/markdown/markdown.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/math/math.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/zoom/zoom.js"></script>
+<script src="../assets/js/widgets.js"></script>
+<script src="../assets/js/widgets-graphs.js"></script>
+<script src="../assets/js/course.js"></script>
+<script>Course.init();</script>
+</body>
+</html>

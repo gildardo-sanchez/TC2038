@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Z-function · TC2038</title>
+<meta name="description" content="TC2038 Analysis and Design of Advanced Algorithms — The Z-function">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<link rel="stylesheet" href="../assets/css/course.css">
+</head>
+<body>
+<div class="reveal">
+<div class="slides">
+<!--
+  SLIDES ARE WRITTEN IN MARKDOWN BELOW
+  ---   new horizontal slide        --    new vertical slide (press ↓)
+  Note: everything after this line is a speaker note (press S)
+  Keep HTML blocks (quizzes, widgets) flush-left and without blank lines inside.
+-->
+<section data-markdown data-separator="^---$" data-separator-vertical="^--$" data-separator-notes="^Note:">
+<textarea data-template>
+<!-- .slide: class="title" -->
+<span class="kicker">TC2038 · Unit 2 · Session 2.2</span>
+
+# The Z-function
+
+### How far does each suffix agree with the whole string?
+
+<p class="byline">Dr. Gildardo Sánchez Ante · Tecnológico de Monterrey<br><span class="tiny">Gusfield, <i>Algorithms on Strings, Trees and Sequences</i>, ch. 1 · cp-algorithms.com</span></p>
+
+Note:
+⏱ 0:00–0:02. Syllabus 2.2. The Z-function (Gusfield's "Z algorithm", fundamental preprocessing) is the second linear-time matching tool. Students often find it easier to implement than KMP.
+
+---
+
+<!-- .slide: class="activity" -->
+## Warm-up
+
+For s = **aabxaab**, how many characters does each suffix share with the **beginning** of s?
+
+<div class="cols">
+<div>
+
+| i | suffix | common prefix with s |
+|---|---|---|
+| 1 | abxaab | ? |
+| 4 | aab | ? |
+| 5 | ab | ? |
+
+</div>
+<div><div class="timer" data-seconds="90"></div>
+<details><summary>Answers</summary>i = 1: "a" → 1 · i = 4: "aab" → 3 · i = 5: "a" → 1</details>
+</div>
+</div>
+
+Note:
+⏱ 0:02–0:06. You just computed z[1], z[4], z[5].
+
+---
+
+## Today
+
+<ul class="agenda">
+<li><span class="t">0:06</span> Definition and naive computation</li>
+<li><span class="t">0:15</span> The Z-box idea</li>
+<li><span class="t">0:30</span> <b>Pulse check 1</b></li>
+<li><span class="t">0:35</span> Why it's linear · code</li>
+<li><span class="t">0:48</span> Pattern matching with P#T</li>
+<li><span class="t">0:58</span> <b>Pulse check 2</b></li>
+<li><span class="t">1:03</span> Z vs π · applications (periods, compression)</li>
+<li><span class="t">1:20</span> <b>Pulse check 3</b> · hands-on</li>
+<li><span class="t">1:33</span> <b>Exit ticket</b></li>
+</ul>
+
+---
+
+## Definition
+
+For a string s of length n:
+
+$$z[i] = \text{length of the longest common prefix of } s \text{ and } s[i..n-1]$$
+
+<div class="cols">
+<div>
+
+| i | 0 | 1 | 2 | 3 | 4 | 5 | 6 |
+|---|---|---|---|---|---|---|---|
+| s | a | a | b | x | a | a | b |
+| z | – | 1 | 0 | 0 | 3 | 1 | 0 |
+
+</div>
+<div class="card fragment">
+<h4>Naive</h4>
+<p>For each i, compare s[0..] with s[i..] character by character: <b>O(n²)</b> on strings like aaaa…a.</p>
+</div>
+</div>
+
+Note:
+⏱ 0:06–0:15. z[0] is usually left undefined (or set to n).
+
+---
+
+## The Z-box idea
+
+Keep the rightmost segment **[l, r)** that matches a prefix of s (a "Z-box"): s[l..r−1] = s[0..r−l−1].
+
+<div class="cols3">
+<div class="card fragment"><h4>i ≥ r</h4><p>Nothing known: compare from scratch.</p></div>
+<div class="card fragment"><h4>i &lt; r</h4><p>s[i..r−1] is a copy of s[i−l..r−l−1]. So z[i] ≥ min(r − i, z[i − l]).</p></div>
+<div class="card fragment"><h4>Then</h4><p>Try to extend beyond r; if we pass r, the Z-box moves: l ← i, r ← i + z[i].</p></div>
+</div>
+
+Note:
+⏱ 0:15–0:22. Same "reuse the mirror" flavor we'll see in Manacher next session.
+
+---
+
+## Watch it
+
+<div class="w" data-widget="zfunc" data-text="aabxaabxcaabxaabxay"></div>
+
+Note:
+⏱ 0:22–0:30. The classic example. Orange outline = Z-box; the orange cell in the z row is z[i − l], the value reused. Count comparisons at the end: ≈ 2n.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="2">
+<p class="q">l = 4, r = 9, i = 6, z[2] = 1. Before any comparison, z[6] starts at…</p>
+<ol><li>0</li><li>min(r − i, z[i − l]) = min(3, 1) = 1</li><li>3</li><li>5</li></ol>
+<p class="explain">i − l = 2, so we reuse z[2] = 1, capped by the 3 characters still inside the Z-box.</p>
+</div>
+
+--
+
+<!-- .slide: class="checkpoint" -->
+<div class="predict" data-answer="5" data-tol="0">
+<p class="q">s = aaaaa. What is z[1] + z[2] + z[3] + z[4] − 5?</p>
+<p class="explain">z = [–, 4, 3, 2, 1] → sum 10 → 10 − 5 = <b>5</b>. The naive method would do Θ(n²) comparisons here; the Z-box method reuses z[1].</p>
+</div>
+
+Note:
+⏱ 0:30–0:35.
+
+---
+
+## Code and linear time
+
+```cpp [1-2|3-4|5-6|7]
+vector<int> zFunction(const string& s) {
+    int n = s.size();  vector<int> z(n, 0);
+    for (int i = 1, l = 0, r = 0; i < n; i++) {
+        if (i < r) z[i] = min(r - i, z[i - l]);                    // reuse
+        while (i + z[i] < n && s[z[i]] == s[i + z[i]]) z[i]++;     // extend
+        if (i + z[i] > r) { l = i; r = i + z[i]; }                 // move the box
+    }
+    return z;
+}
+```
+
+<p class="small fragment"><b>Why O(n)?</b> Every successful comparison in the while loop pushes r one step to the right (r ≤ n), and each i has at most one failed comparison → ≤ 2n comparisons.</p>
+
+Note:
+⏱ 0:35–0:48. Subtle point: when z[i − l] < r − i (strictly inside), the while loop fails immediately.
+
+---
+
+## Pattern matching with Z
+
+Build **S = P + '#' + T** (# appears in neither).
+
+<div class="w" data-widget="zfunc" data-mode="match" data-text="abacaabaccabacabaabb" data-pattern="abacab"></div>
+
+Note:
+⏱ 0:48–0:58. The widget opens in "Search" mode: every z value equal to |P| (green) is an occurrence. # guarantees z never exceeds |P|. Total O(n + m), same as KMP.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="3">
+<p class="q">Why do we need the separator # in P#T?</p>
+<ol><li>To mark the end of the text</li><li>To make the string length even</li><li>So that no z-value can exceed |P| by running past the pattern</li><li>It is not needed</li></ol>
+<p class="explain">Without it, a match could "continue" from the pattern into the text and give z &gt; |P|.</p>
+</div>
+
+Note:
+⏱ 0:58–1:03.
+
+---
+
+## Z-function vs prefix function
+
+| | Prefix function π | Z-function |
+|---|---|---|
+| Stores | longest border **ending** at i | longest prefix match **starting** at i |
+| Matching | π of P#T, value = m | z of P#T, value = m |
+| Time | Θ(n) | Θ(n) |
+| Converting | one can be computed from the other in O(n) | |
+
+<p class="small">Pick the one you find easier to write correctly under pressure.</p>
+
+Note:
+⏱ 1:03–1:08.
+
+---
+
+## Applications
+
+<div class="cols">
+<div class="card"><h4>Smallest period</h4><p>The smallest p with p + z[p] = n is the shortest period; if n is a multiple of p, s is a repetition (abcabcabc = (abc)³).</p></div>
+<div class="card"><h4>String compression</h4><p>Shortest t such that s = t + t + … + t: same test.</p></div>
+<div class="card"><h4>Distinct substrings</h4><p>Add characters one at a time; the Z-function of the reversed string tells how many new substrings appear → O(n²) total.</p></div>
+<div class="card"><h4>Many patterns, DNA</h4><p>Gusfield uses Z as the "fundamental preprocessing" for Boyer–Moore and other exact matchers.</p></div>
+</div>
+
+Note:
+⏱ 1:08–1:20. Demo: type "abcabcabc" in the widget: z[3] = 6 and 3 + 6 = 9 = n → period 3.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="predict" data-answer="3" data-tol="0">
+<p class="q">s = abcabcabcabc (n = 12). Smallest p such that p + z[p] = n?</p>
+<p class="explain">z[3] = 9 and 3 + 9 = 12 → <b>p = 3</b>; 12 is a multiple of 3 → s = (abc)⁴.</p>
+</div>
+
+--
+
+<!-- .slide: class="activity" -->
+## Your turn
+
+1. Compute the Z-function of **aaabaab** by hand, using the Z-box.
+2. Find all occurrences of **aab** in **baabaab** with Z of P#T.
+3. What is the smallest period of **abaabaaba**?
+
+<div class="timer" data-seconds="480"></div>
+
+<details><summary>Answers</summary>
+1) z = [–, 2, 1, 0, 2, 1, 0]. 2) S = aab#baabaab → z = 3 at positions 5 and 8 → occurrences at 1 and 4. 3) p = 3 (3 + z[3] = 3 + 6 = 9 = n).
+</details>
+
+Note:
+⏱ 1:20–1:33. Students verify with the widget.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+## Exit ticket
+
+<div class="quiz" data-answer="4">
+<p class="q">The Z-algorithm is linear because…</p>
+<ol><li>z[i] is always small</li><li>it uses a hash table</li><li>it never compares characters</li><li>each successful comparison moves the right end r of the Z-box forward, and r ≤ n</li></ol>
+<p class="explain">Amortized analysis again, like KMP.</p>
+</div>
+
+Note:
+⏱ 1:33–1:40. Reading: cp-algorithms "Z-function and its calculation"; Gusfield 1.3–1.5.
+
+---
+
+## Takeaways
+
+- **z[i]** = longest common prefix of s and its suffix starting at i.
+- Maintain the rightmost **Z-box [l, r)**; reuse **z[i − l]**, extend, move the box → **O(n)**.
+- Matching: z of **P#T**, look for z = |P|.
+- Applications: periods, compression, many-pattern preprocessing.
+
+<p class="muted small">Next: Manacher — the same "mirror" trick for palindromes.</p>
+</textarea>
+</section>
+</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/markdown/markdown.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/math/math.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/zoom/zoom.js"></script>
+<script src="../assets/js/widgets.js"></script>
+<script src="../assets/js/widgets-strings.js"></script>
+<script src="../assets/js/course.js"></script>
+<script>Course.init();</script>
+</body>
+</html>

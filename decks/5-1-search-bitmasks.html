@@ -276,7 +276,7 @@ Note:
 ```cpp [1-4|6-8|10-12]
 bool has(int S, int i)  { return S >> i & 1; }        // i ∈ S ?
 int  add(int S, int i)  { return S | (1 << i); }      // S ∪ {i}
-int  del(int S, int i)  { return S & ~(1 << i); }     // S \ {i}
+int  del(int S, int i)  { return S & ~(1 << i); }     // S ;{i}
 int  low(int S)         { return S & -S; }            // lowest element (as a bit)
 
 for (int S = 0; S < (1 << n); S++) { /* every subset of n items */ }

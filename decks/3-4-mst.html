@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Minimum Spanning Trees: Prim and Kruskal · TC2038</title>
+<meta name="description" content="TC2038 Analysis and Design of Advanced Algorithms — Minimum Spanning Trees: Prim and Kruskal">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<link rel="stylesheet" href="../assets/css/course.css">
+</head>
+<body>
+<div class="reveal">
+<div class="slides">
+<!--
+  SLIDES ARE WRITTEN IN MARKDOWN BELOW
+  ---   new horizontal slide        --    new vertical slide (press ↓)
+  Note: everything after this line is a speaker note (press S)
+  Keep HTML blocks (quizzes, widgets) flush-left and without blank lines inside.
+-->
+<section data-markdown data-separator="^---$" data-separator-vertical="^--$" data-separator-notes="^Note:">
+<textarea data-template>
+<!-- .slide: class="title" -->
+<span class="kicker">TC2038 · Unit 3 · Session 3.4</span>
+
+# Minimum spanning trees
+
+### Prim and Kruskal: two greedy ways to the same optimum
+
+<p class="byline">Dr. Gildardo Sánchez Ante · Tecnológico de Monterrey<br><span class="tiny">CLRS 3rd ed., ch. 23 (MST) and ch. 21 (disjoint sets)</span></p>
+
+Note:
+⏱ 0:00–0:02. Syllabus 3.7 (Prim) and 3.8 (Kruskal).
+
+---
+
+<!-- .slide: class="activity" -->
+## Warm-up: wire the campus
+
+<div class="cols">
+<div>
+
+Nine buildings must be connected by fiber optics. Each possible trench has a cost. Every building must be reachable from every other one.
+
+- How many trenches do you need, at least?
+- Would the cheapest network ever contain a cycle?
+
+</div>
+<div class="card">
+<h4>Applications</h4>
+<p>Network design (telephone, electrical, hydraulic, cable TV, computer networks), clustering (stop Kruskal early!), approximation of TSP and Steiner trees, image segmentation, circuit design.</p>
+</div>
+</div>
+
+<div class="timer" data-seconds="120"></div>
+
+Note:
+⏱ 0:02–0:06. 8 trenches (a tree on 9 vertices has 8 edges). No cycle: removing any cycle edge keeps connectivity and lowers the cost (weights positive).
+
+---
+
+## Today
+
+<ul class="agenda">
+<li><span class="t">0:06</span> Spanning trees, the generic greedy method</li>
+<li><span class="t">0:15</span> Cuts, light edges and the cut property</li>
+<li><span class="t">0:25</span> <b>Pulse check 1</b></li>
+<li><span class="t">0:30</span> Prim's algorithm</li>
+<li><span class="t">0:48</span> Kruskal's algorithm and union–find</li>
+<li><span class="t">1:08</span> <b>Pulse check 2</b> · hands-on</li>
+<li><span class="t">1:33</span> <b>Exit ticket</b></li>
+</ul>
+
+---
+
+## Spanning trees
+
+- A **spanning tree** of a connected, undirected G = (V, E) is a subset of edges that forms a tree containing **all** vertices → |V| − 1 edges.
+- A graph can have many spanning trees (Kₙ has nⁿ⁻² of them — Cayley). <!-- .element: class="fragment" -->
+- **MST**: a spanning tree of minimum total weight w(T) = Σ w(u, v). <!-- .element: class="fragment" -->
+- Not connected? One tree per component: a **spanning forest**. <!-- .element: class="fragment" -->
+
+<p class="fragment small">Brute force over all spanning trees is hopeless; greedy works here — and we can prove it.</p>
+
+Note:
+⏱ 0:06–0:10.
+
+---
+
+## The generic method (CLRS 23.1)
+
+<div class="cols">
+<div>
+
+```text
+GENERIC-MST(G, w)
+  A = ∅
+  while A is not a spanning tree
+      find an edge (u, v) that is SAFE for A
+      A = A ∪ {(u, v)}
+  return A
+```
+
+<p class="small"><b>Invariant:</b> A is a subset of some MST. An edge is <b>safe</b> if adding it keeps the invariant.</p>
+
+</div>
+<div class="card">
+<h4>The two algorithms differ in the rule</h4>
+<p><b>Prim:</b> A is always a single tree; add the cheapest edge leaving it.</p>
+<p><b>Kruskal:</b> A is a forest; add the cheapest edge joining two different trees.</p>
+</div>
+</div>
+
+Note:
+⏱ 0:10–0:15.
+
+---
+
+## Cuts and light edges
+
+<div class="cols">
+<div>
+
+- A **cut** (S, V − S) is a partition of the vertices.
+- An edge **crosses** the cut if one endpoint is on each side. <!-- .element: class="fragment" -->
+- A cut **respects** A if no edge of A crosses it. <!-- .element: class="fragment" -->
+- A **light edge** is a crossing edge of minimum weight. <!-- .element: class="fragment" -->
+
+</div>
+<div class="card fragment">
+<h4>Cut property (Theorem 23.1)</h4>
+<p>If A ⊆ some MST and the cut (S, V − S) respects A, then <b>any light edge crossing the cut is safe</b> for A.</p>
+<p class="small muted">Proof (exchange): take an MST T without the light edge (u, v). The path u ⇝ v in T crosses the cut on some edge (x, y). Swap (x, y) for (u, v): still a spanning tree, weight does not increase.</p>
+</div>
+</div>
+
+Note:
+⏱ 0:15–0:25. Draw the exchange argument on the board with the CLRS graph. Your slide asked: "Is (h, g) safe initially?" Yes — it is the lightest edge overall, so it is light for any cut separating h from g.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="3">
+<p class="q">Every edge weight in G is distinct. Which edge is certainly in the MST?</p>
+<ol><li>The heaviest edge</li><li>The edge with the median weight</li><li>The lightest edge</li><li>None is guaranteed</li></ol>
+<p class="explain">It is light for any cut that separates its endpoints. (With distinct weights, the MST is unique.)</p>
+</div>
+
+--
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="2">
+<p class="q">The heaviest edge of a cycle…</p>
+<ol><li>is always in the MST</li><li>can be left out of some MST (cycle property)</li><li>must be in every spanning tree</li><li>makes the MST undefined</li></ol>
+<p class="explain">Kruskal will discard it: when it is reached, its endpoints are already connected by lighter edges.</p>
+</div>
+
+Note:
+⏱ 0:25–0:30.
+
+---
+
+## Prim's algorithm (Jarník 1930, Prim 1957)
+
+<div class="w" data-widget="mst" data-algo="prim" data-h="300"></div>
+
+Note:
+⏱ 0:30–0:42. CLRS Fig. 23.5 — the same example as your slides. key[v] = weight of the lightest edge connecting v to the tree (orange numbers). Extraction order a, b, c, i, f, g, h, d, e; total 37. Note the tie after b: key[c] = key[h] = 8 — either one gives an MST (CLRS picks c, the widget too).
+
+---
+
+## Prim: the code
+
+<div class="cols" style="grid-template-columns:1.7fr 1fr">
+<div>
+
+```cpp
+// adj[u] = {(v, w)}; returns the MST weight
+long long prim(const vector<vector<pair<int,int>>>& adj) {
+    int n = adj.size();
+    vector<int> key(n, INT_MAX);  vector<bool> inT(n, false);
+    priority_queue<pair<int,int>, vector<pair<int,int>>, greater<>> pq;
+    key[0] = 0;  pq.push({0, 0});
+    long long total = 0;
+    while (!pq.empty()) {
+        auto [k, u] = pq.top();  pq.pop();
+        if (inT[u]) continue;
+        inT[u] = true;  total += k;
+        for (auto [v, w] : adj[u])
+            if (!inT[v] && w < key[v]) { key[v] = w;  pq.push({w, v}); }
+    }
+    return total;
+}
+```
+
+</div>
+<div class="small">
+
+<div class="card"><h4>Déjà vu?</h4><p>It is Dijkstra's code! The only change: the key is <b>w(u, v)</b>, not d[u] + w(u, v).</p></div>
+
+<div class="card fragment"><h4>Cost</h4><p><b>O(E log V)</b> with a binary heap; <b>O(V²)</b> with an array (dense graphs); O(E + V log V) with a Fibonacci heap.</p></div>
+
+</div>
+</div>
+
+Note:
+⏱ 0:42–0:48. Common student bug: copying Dijkstra and leaving d[u] + w.
+
+---
+
+## Kruskal's algorithm (1956)
+
+<div class="w" data-widget="mst" data-algo="kruskal" data-h="280"></div>
+
+Note:
+⏱ 0:48–0:58. Colors = components of the forest. Sequence from your slide: add (h,g), (c,i), (g,f), (a,b), (c,f); ignore (i,g); add (c,d); ignore (i,h); add (a,h); ignore (b,c); add (d,e); ignore (e,f), (b,h), (d,f). Total 37 — same weight as Prim, even if the tree differs (here it picks (a,h) instead of (b,c): both weigh 8).
+
+---
+
+## Disjoint sets (union–find)
+
+<div class="cols">
+<div>
+
+```cpp
+vector<int> parent, rnk;
+int find(int x) {                       // path compression
+    return parent[x] == x ? x : parent[x] = find(parent[x]);
+}
+bool unite(int a, int b) {              // union by rank
+    a = find(a);  b = find(b);
+    if (a == b) return false;           // same tree → cycle
+    if (rnk[a] < rnk[b]) swap(a, b);
+    parent[b] = a;
+    if (rnk[a] == rnk[b]) rnk[a]++;
+    return true;
+}
+// Kruskal
+sort(edges.begin(), edges.end());       // by weight
+for (auto [w, u, v] : edges)
+    if (unite(u, v)) total += w;
+```
+
+</div>
+<div>
+
+- MAKE-SET, FIND-SET, UNION.
+- With both heuristics: **O(α(n))** amortized per operation; α ≤ 4 for any n in this universe. <!-- .element: class="fragment" -->
+- Kruskal: **O(E log E) = O(E log V)**, dominated by the sort. <!-- .element: class="fragment" -->
+
+</div>
+</div>
+
+Note:
+⏱ 0:58–1:08. α is the inverse Ackermann function (CLRS 21.4). Without union by rank and path compression a FIND can cost O(V).
+
+---
+
+## Prim or Kruskal?
+
+| | Prim | Kruskal |
+|---|---|---|
+| grows | one tree | a forest |
+| needs | priority queue | sort + union–find |
+| time | O(E log V), O(V²) with array | O(E log V) |
+| best for | dense graphs | sparse graphs, edges already sorted |
+| bonus | — | stop at k trees → k clusters |
+
+Note:
+⏱ Quick comparison, 1 minute.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="predict" data-answer="6" data-tol="0">
+<p class="q">The CLRS graph has 9 vertices and 14 edges. How many edges does Kruskal reject?</p>
+<p class="explain">It accepts |V| − 1 = 8, so it rejects 14 − 8 = <b>6</b>: (i, g), (i, h), (b, c), (e, f), (b, h), (d, f). (In practice you can stop as soon as 8 edges are accepted.)</p>
+</div>
+
+--
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="4">
+<p class="q">In Kruskal, the edge (i, g) with weight 6 is rejected because…</p>
+<ol><li>it is heavier than (c, f)</li><li>g already has degree 2</li><li>i is a leaf</li><li>i and g are already in the same component (c–i, c–f, f–g)</li></ol>
+<p class="explain">FIND-SET(i) = FIND-SET(g) → it would close a cycle.</p>
+</div>
+
+--
+
+<!-- .slide: class="activity" -->
+## Your turn
+
+<div class="cols">
+<div>
+
+Edges: A–B 6, A–C 1, A–D 5, B–C 5, B–E 3, C–D 5, C–E 6, C–F 4, D–F 2, E–F 6.
+
+1. Run **Kruskal**: accepted / rejected edges in order.
+2. Run **Prim from A**: order in which the vertices join.
+3. Total weight? Is the MST unique?
+
+</div>
+<div>
+
+<div class="timer" data-seconds="600"></div>
+
+<details><summary>Answers</summary>
+1) Accept AC 1, DF 2, BE 3, CF 4. Weight 5: AD rejected (A–C–F–D are already connected), BC accepted, CD rejected. Everything after that is rejected. 2) A, C (1), F (4), D (2), B (5), E (3). 3) 15. Unique here despite the three ties at weight 5 (e.g., BC is the only light edge of the cut {B, E} | rest). With ties an MST may not be unique, but all MSTs have the same weight.
+</details>
+
+</div>
+</div>
+
+Note:
+⏱ 1:08–1:33.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+## Exit ticket
+
+<div class="quiz" data-answer="1">
+<p class="q">What is the key difference between Prim and Dijkstra?</p>
+<ol><li>Prim's key is the weight of the single edge to the tree; Dijkstra's is the total distance from the source</li><li>Prim works on directed graphs only</li><li>Dijkstra is greedy and Prim is not</li><li>There is no difference</li></ol>
+<p class="explain">Same skeleton, different key. An MST does NOT give shortest paths, and a shortest-path tree is not an MST.</p>
+</div>
+
+Note:
+⏱ 1:33–1:40. Reading: CLRS 23.1–23.2, 21.3.
+
+---
+
+## Takeaways
+
+- **Cut property**: a light edge crossing a cut that respects A is safe → greedy is optimal.
+- **Prim**: one growing tree + priority queue, **O(E log V)** (O(V²) with an array).
+- **Kruskal**: sorted edges + **union–find**, **O(E log V)**; near-constant α(n) per operation.
+- Every MST of a graph has the **same total weight**.
+
+<p class="muted small">Next: graph coloring and the optimal binary search tree.</p>
+</textarea>
+</section>
+</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/markdown/markdown.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/math/math.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/zoom/zoom.js"></script>
+<script src="../assets/js/widgets.js"></script>
+<script src="../assets/js/widgets-graphs.js"></script>
+<script src="../assets/js/course.js"></script>
+<script>Course.init();</script>
+</body>
+</html>

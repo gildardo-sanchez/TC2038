@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Graph Coloring and Optimal BSTs · TC2038</title>
+<meta name="description" content="TC2038 Analysis and Design of Advanced Algorithms — Graph Coloring and Optimal BSTs">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<link rel="stylesheet" href="../assets/css/course.css">
+</head>
+<body>
+<div class="reveal">
+<div class="slides">
+<!--
+  SLIDES ARE WRITTEN IN MARKDOWN BELOW
+  ---   new horizontal slide        --    new vertical slide (press ↓)
+  Note: everything after this line is a speaker note (press S)
+  Keep HTML blocks (quizzes, widgets) flush-left and without blank lines inside.
+-->
+<section data-markdown data-separator="^---$" data-separator-vertical="^--$" data-separator-notes="^Note:">
+<textarea data-template>
+<!-- .slide: class="title" -->
+<span class="kicker">TC2038 · Unit 3 · Session 3.5</span>
+
+# Graph coloring & optimal BSTs
+
+### When greedy is only a bound — and when DP gives the exact answer
+
+<p class="byline">Dr. Gildardo Sánchez Ante · Tecnológico de Monterrey<br><span class="tiny">Welsh & Powell (1967) · Appel & Haken (1976) · Gilbert & Moore (1959) · CLRS 3rd ed., 15.5</span></p>
+
+Note:
+⏱ 0:00–0:02. Syllabus 3.10 (graph coloring) and 3.9 (Gilbert and Moore's optimal BST). Coloring takes ~60 min, the optimal BST ~30 min.
+
+---
+
+<!-- .slide: class="activity" -->
+## Warm-up: schedule the finals
+
+<div class="cols">
+<div>
+
+Six exams. Two exams that share a student cannot be at the same time:
+
+- Algorithms – Calculus, Algorithms – Physics, Calculus – Physics
+- Calculus – Chemistry, Physics – Biology
+- Chemistry – Biology, Chemistry – English, Biology – English
+
+**Minimum number of time slots?**
+
+</div>
+<div class="card">
+<h4>Model it</h4>
+<p>Vertex = exam, edge = conflict, color = time slot. Adjacent vertices need different colors.</p>
+</div>
+</div>
+
+<div class="timer" data-seconds="180"></div>
+
+Note:
+⏱ 0:02–0:07. Answer 3: Algorithms, Calculus, Physics form a triangle (≥ 3), and 3 suffice: Alg 1, Calc 2, Phys 3, Chem 1, Bio 2, Eng 3.
+
+---
+
+## Today
+
+<ul class="agenda">
+<li><span class="t">0:07</span> Coloring, chromatic number, applications</li>
+<li><span class="t">0:15</span> Planar graphs and the four-color theorem</li>
+<li><span class="t">0:25</span> Greedy coloring and why the order matters</li>
+<li><span class="t">0:38</span> <b>Pulse check 1</b></li>
+<li><span class="t">0:43</span> Welsh–Powell and exact backtracking</li>
+<li><span class="t">0:58</span> <b>Pulse check 2</b></li>
+<li><span class="t">1:03</span> Optimal BST (Gilbert–Moore / CLRS 15.5)</li>
+<li><span class="t">1:25</span> <b>Pulse check 3</b> · exit ticket</li>
+</ul>
+
+---
+
+## Coloring
+
+- A (proper) **k-coloring** assigns one of k colors to each vertex so that **adjacent vertices get different colors**.
+- **Chromatic number χ(G)**: the smallest such k. <!-- .element: class="fragment" -->
+- Bounds: **ω(G) ≤ χ(G) ≤ Δ(G) + 1** (ω = largest clique, Δ = maximum degree). <!-- .element: class="fragment" -->
+
+<div class="cols small fragment">
+<div class="card"><h4>Scheduling</h4><p>Exams, meetings, tasks that share resources.</p></div>
+<div class="card"><h4>Frequencies</h4><p>Nearby radio towers / Wi-Fi access points get different channels.</p></div>
+<div class="card"><h4>Registers</h4><p>Compilers color the interference graph of variables.</p></div>
+<div class="card"><h4>Sudoku</h4><p>81 cells, 9 colors; edges join cells in the same row, column or box.</p></div>
+</div>
+
+Note:
+⏱ 0:07–0:15. From your applications slides. Register allocation (Chaitin, 1981) is the most "computer science" one.
+
+---
+
+## Maps, planar graphs and four colors
+
+<div class="cols">
+<div>
+
+- **Dual graph** of a map: one vertex per region, an edge if two regions share a border (not just a point).
+- **Planar** graph: it *can* be drawn without crossings. Euler: **v − e + f = 2**. <!-- .element: class="fragment" -->
+- **Four-color theorem**: every planar graph has χ ≤ 4. <!-- .element: class="fragment" -->
+
+</div>
+<div class="card fragment">
+<h4>A long story</h4>
+<p>Conjectured by Francis Guthrie (1852) coloring a map of English counties. Proved by <b>Appel & Haken (1976)</b> with a computer checking ~1,900 configurations — the first major computer-assisted proof. Simplified by Robertson, Sanders, Seymour & Thomas (1997), formally verified in Coq (Gonthier, 2005).</p>
+</div>
+</div>
+
+Note:
+⏱ 0:15–0:25. Five colors are easy to prove (Heawood, 1890); four took 124 years. Deciding if a planar graph is 3-colorable is still NP-complete.
+
+---
+
+## 2-colorable = bipartite
+
+<div class="cols">
+<div>
+
+- **Bipartite**: V splits into A and B with every edge between A and B.
+- G is 2-colorable ⇔ bipartite ⇔ **no odd cycle**. <!-- .element: class="fragment" -->
+- Test in **O(V + E)** with BFS: color by layer parity, check every edge. <!-- .element: class="fragment" -->
+
+</div>
+<div class="card fragment">
+<h4>The cliff</h4>
+<p>k = 2: linear time.</p>
+<p>k = 3: <b>NP-complete</b> (Karp, 1972).</p>
+<p>Even approximating χ within n^(1−ε) is NP-hard (Zuckerman, 2006).</p>
+</div>
+</div>
+
+Note:
+⏱ 0:23–0:25.
+
+---
+
+## Greedy coloring
+
+<div class="cols">
+<div>
+
+```text
+for each vertex v, in some order:
+    give v the smallest color
+    not used by its already-colored neighbors
+```
+
+- Never uses more than **Δ + 1** colors (a vertex has ≤ Δ neighbors). <!-- .element: class="fragment" -->
+- **O(V + E)** per pass (O(V² + E) with a naive scan of colors). <!-- .element: class="fragment" -->
+- But the number of colors **depends on the order**. <!-- .element: class="fragment" -->
+
+</div>
+<div class="card fragment">
+<h4>Your slide's question</h4>
+<p>A bipartite graph (χ = 2) colored in the order 1, 5, 2, 6, 3, 7, 4, 8… how many colors will greedy use? Let's see.</p>
+</div>
+</div>
+
+Note:
+⏱ 0:25–0:30.
+
+---
+
+## Order matters
+
+<div class="w" data-widget="coloring" data-preset="crown" data-h="300"></div>
+
+Note:
+⏱ 0:30–0:38. The "crown" graph: Kₙ,ₙ minus a perfect matching (i is not joined to i + 4). In the order 1, 5, 2, 6, … greedy uses 4 colors; in the order 1, 2, 3, 4, 5, … it uses 2 (Welsh–Powell button: all degrees are 3, so it keeps the natural order). For crown graphs on 2n vertices, a bad order forces n colors — greedy can be arbitrarily bad. Yet for EVERY graph there is some order in which greedy is optimal.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="2">
+<p class="q">Greedy colored a graph with 5 colors. What can we conclude?</p>
+<ol><li>χ(G) = 5</li><li>χ(G) ≤ 5</li><li>χ(G) ≥ 5</li><li>Δ(G) = 4</li></ol>
+<p class="explain">Any proper coloring is an upper bound. A lower bound needs an argument: a clique, an odd cycle (≥ 3), …</p>
+</div>
+
+--
+
+<!-- .slide: class="checkpoint" -->
+<div class="predict" data-answer="3" data-tol="0">
+<p class="q">Warm-up graph: what is χ for the six exams?</p>
+<p class="explain"><b>3</b>: the triangle Algorithms–Calculus–Physics forces ≥ 3, and the coloring in the notes uses 3.</p>
+</div>
+
+Note:
+⏱ 0:38–0:43.
+
+---
+
+## Welsh–Powell (1967) and backtracking
+
+<div class="cols">
+<div class="card">
+<h4>Welsh–Powell</h4>
+<ol class="small"><li>Sort vertices by <b>decreasing degree</b>.</li><li>Give color 1 to the first vertex and to every later vertex not adjacent to one already colored 1.</li><li>Repeat with color 2 on the uncolored ones, and so on.</li></ol>
+<p class="small">O(V²). Bound: χ ≤ max over i of min(dᵢ + 1, i).</p>
+</div>
+<div class="card">
+<h4>Exact: backtracking</h4>
+<p class="small">Try k = 1, 2, 3, …: assign colors vertex by vertex; if no color fits, undo the last choice (the n-queens pattern from Unit 1). Exponential worst case — it answers "is χ ≤ k?".</p>
+</div>
+</div>
+
+Note:
+⏱ 0:43–0:48. Welsh–Powell = greedy with a smart order (the high-degree vertices are the hardest, color them first). DSatur (Brélaz, 1979) is another popular order: pick the vertex with the most distinct colors among its neighbors.
+
+---
+
+## Try them on other graphs
+
+<div class="w" data-widget="coloring" data-preset="wheel" data-h="290"></div>
+
+Note:
+⏱ 0:48–0:58. Wheel: a 5-cycle plus a hub. The odd cycle needs 3 colors, the hub a 4th → χ = 4; Welsh–Powell finds 4. Petersen graph: χ = 3 (backtracking proves 2 is impossible; it has 5-cycles). Ask them to predict before pressing Play.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="4">
+<p class="q">The wheel (a 5-cycle plus a center joined to all) needs how many colors?</p>
+<ol><li>2</li><li>3</li><li>5</li><li>4</li></ol>
+<p class="explain">The odd 5-cycle needs 3, and the hub is adjacent to all of them. A wheel with an even rim needs only 3.</p>
+</div>
+
+Note:
+⏱ 0:58–1:03.
+
+---
+
+<!-- .slide: class="divider" -->
+## Part 2 · The optimal binary search tree
+
+Gilbert & Moore (1959) · Knuth (1971) · CLRS 15.5
+
+---
+
+## Not all keys are equal
+
+<div class="cols">
+<div>
+
+A translator looks words up in a BST. "the" is searched a million times, "machicolation" once.
+
+- A **balanced** tree minimizes the worst case…
+- …but we want to minimize the **expected** cost of searches. <!-- .element: class="fragment" -->
+
+</div>
+<div class="card fragment">
+<h4>Input</h4>
+<p>Sorted keys k₁ &lt; … &lt; kₙ with probabilities <b>pᵢ</b>, and dummy keys d₀…dₙ (unsuccessful searches between keys) with probabilities <b>qᵢ</b>; Σp + Σq = 1.</p>
+<p>Cost of a search = depth + 1. Minimize</p>
+<p>E = Σ (depth(kᵢ) + 1)·pᵢ + Σ (depth(dᵢ) + 1)·qᵢ</p>
+</div>
+</div>
+
+Note:
+⏱ 1:03–1:08. Gilbert and Moore studied it in 1959 for variable-length alphabetic binary codes (like Huffman, but the code words must keep the alphabetical order of the symbols) and gave the O(n³) DP. Knuth (1971) showed that the optimal roots are monotone → O(n²).
+
+---
+
+## The DP (CLRS 15.5)
+
+If kᵣ is the root of the optimal tree for keys kᵢ..kⱼ, its two subtrees must be optimal for kᵢ..kᵣ₋₁ and kᵣ₊₁..kⱼ.
+
+$$e[i][j] = \min_{i \le r \le j} \left( e[i][r-1] + e[r+1][j] + w(i, j) \right), \qquad e[i][i-1] = q_{i-1}$$
+
+<p class="small">w(i, j) = pᵢ + … + pⱼ + qᵢ₋₁ + … + qⱼ: hanging both subtrees one level deeper adds the whole probability mass once.</p>
+
+<div class="cols small">
+<div class="card fragment"><h4>Order</h4><p>By increasing length l = j − i + 1, exactly like matrix-chain multiplication.</p></div>
+<div class="card fragment"><h4>Cost</h4><p>Θ(n²) subproblems × O(n) roots = <b>Θ(n³)</b>; Knuth's monotonicity root[i][j−1] ≤ root[i][j] ≤ root[i+1][j] → <b>O(n²)</b>.</p></div>
+</div>
+
+Note:
+⏱ 1:08–1:15.
+
+---
+
+## Filling e[i][j]
+
+<div class="w" data-widget="obst" data-h="290"></div>
+
+Note:
+⏱ 1:15–1:25. CLRS Fig. 15.10. Final cost 2.75, root k₂; left subtree k₁, right subtree rooted at k₅ with k₄ and k₃ below. Note k₅ (p = .20) is the most probable key but is NOT the root: the DP balances probability and structure. Greedy "most probable key at the root" is not optimal in general.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="predict" data-answer="0.45" data-tol="0.001">
+<p class="q">CLRS data: p₁ = .15, q₀ = .05, q₁ = .10. What is e[1][1] (a tree with only k₁)?</p>
+<p class="explain">e[1][0] + e[2][1] + w(1, 1) = .05 + .10 + (.05 + .15 + .10) = <b>0.45</b>.</p>
+</div>
+
+--
+
+<!-- .slide: class="checkpoint" -->
+## Exit ticket
+
+<div class="quiz" data-answer="3">
+<p class="q">Which pair is correct?</p>
+<ol><li>Greedy coloring: always optimal · Optimal BST: greedy by probability</li><li>Welsh–Powell: exact · Optimal BST: O(n log n)</li><li>Greedy coloring: an upper bound ≤ Δ + 1 · Optimal BST: exact DP in Θ(n³), O(n²) with Knuth</li><li>2-coloring: NP-complete · Optimal BST: NP-hard</li></ol>
+<p class="explain">Coloring is NP-hard for k ≥ 3 so we settle for bounds and heuristics; the BST problem has optimal substructure and a polynomial DP.</p>
+</div>
+
+Note:
+⏱ 1:25–1:40. Reading: CLRS 15.5; for coloring, any discrete-math text (e.g. Rosen, §10.8).
+
+---
+
+## Takeaways
+
+- **χ(G)**: fewest colors with adjacent vertices different. ω ≤ χ ≤ Δ + 1. Planar → χ ≤ 4.
+- 2-coloring is linear (bipartite test); **3-coloring is NP-complete**.
+- **Greedy** depends on the order; **Welsh–Powell** orders by degree; **backtracking** is exact but exponential.
+- **Optimal BST**: e[i][j] = min over roots of left + right + w(i, j), **Θ(n³)** (O(n²) with Knuth).
+
+<p class="muted small">Next: flows in networks — Ford–Fulkerson, and minimum path covers in DAGs.</p>
+</textarea>
+</section>
+</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/markdown/markdown.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/math/math.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/zoom/zoom.js"></script>
+<script src="../assets/js/widgets.js"></script>
+<script src="../assets/js/widgets-graphs.js"></script>
+<script src="../assets/js/course.js"></script>
+<script>Course.init();</script>
+</body>
+</html>

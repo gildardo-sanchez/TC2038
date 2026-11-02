@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Suffix Arrays and Longest Common Substring · TC2038</title>
+<meta name="description" content="TC2038 Analysis and Design of Advanced Algorithms — Suffix Arrays and Longest Common Substring">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<link rel="stylesheet" href="../assets/css/course.css">
+</head>
+<body>
+<div class="reveal">
+<div class="slides">
+<!--
+  SLIDES ARE WRITTEN IN MARKDOWN BELOW
+  ---   new horizontal slide        --    new vertical slide (press ↓)
+  Note: everything after this line is a speaker note (press S)
+  Keep HTML blocks (quizzes, widgets) flush-left and without blank lines inside.
+-->
+<section data-markdown data-separator="^---$" data-separator-vertical="^--$" data-separator-notes="^Note:">
+<textarea data-template>
+<!-- .slide: class="title" -->
+<span class="kicker">TC2038 · Unit 2 · Session 2.5</span>
+
+# Suffix arrays & longest common substring
+
+### Sort all the suffixes — and many problems become easy
+
+<p class="byline">Dr. Gildardo Sánchez Ante · Tecnológico de Monterrey<br><span class="tiny">Manber & Myers (1993) · Kasai et al. (2001) · CLRS ch. 15 (DP)</span></p>
+
+Note:
+⏱ 0:00–0:02. Syllabus 2.5 and 2.6. Closing session of Unit 2: one data structure (suffix array + LCP) that answers many questions, and two ways to compute the longest common substring.
+
+---
+
+<!-- .slide: class="activity" -->
+## Warm-up: sort the suffixes
+
+Write all suffixes of **banana** and sort them alphabetically. Write the starting index of each.
+
+<div class="timer" data-seconds="150"></div>
+
+<details><summary>Answer</summary>
+a (5) · ana (3) · anana (1) · banana (0) · na (4) · nana (2) → suffix array <b>[5, 3, 1, 0, 4, 2]</b>
+</details>
+
+Note:
+⏱ 0:02–0:07. Your slides use "camel" → [1, 0, 3, 4, 2] and "abaab" → [2, 3, 0, 4, 1]; banana is the classic.
+
+---
+
+## Today
+
+<ul class="agenda">
+<li><span class="t">0:07</span> Suffix arrays: definition, naive construction</li>
+<li><span class="t">0:15</span> Prefix doubling O(n log n)</li>
+<li><span class="t">0:30</span> <b>Pulse check 1</b></li>
+<li><span class="t">0:35</span> Searching · the LCP array · applications</li>
+<li><span class="t">0:55</span> <b>Pulse check 2</b></li>
+<li><span class="t">1:00</span> Longest common substring: DP and suffix array</li>
+<li><span class="t">1:22</span> <b>Pulse check 3</b> · hands-on</li>
+<li><span class="t">1:33</span> <b>Exit ticket</b></li>
+</ul>
+
+---
+
+## Suffix array
+
+The **suffix array** SA of s lists the starting positions of the suffixes of s in **lexicographic order**.
+
+- Stores only n integers — the suffixes themselves are implicit.
+- A compact alternative to the **suffix tree** (Weiner 1973): ~4n bytes instead of ~20n. <!-- .element: class="fragment" -->
+- With the LCP array it can do almost everything a suffix tree does. <!-- .element: class="fragment" -->
+
+<div class="quiz fragment" data-answer="3">
+<p class="q">Naive construction: sort the n suffixes with a comparison sort. Time?</p>
+<ol><li>O(n log n)</li><li>O(n²)</li><li>O(n² log n): O(n log n) comparisons, each up to O(n) characters</li><li>O(n³)</li></ol>
+<p class="explain">Comparing two suffixes can take O(n) on strings like aaaa…a.</p>
+</div>
+
+Note:
+⏱ 0:07–0:15.
+
+---
+
+## Prefix doubling (Manber & Myers idea)
+
+1. Rank suffixes by their **first character**.
+2. Given ranks for the first k characters, the first **2k** characters of suffix i are described by the pair **(rank[i], rank[i + k])**. <!-- .element: class="fragment" -->
+3. Sort by pairs, re-rank, double k: 1, 2, 4, 8, … until all ranks differ. <!-- .element: class="fragment" -->
+
+<p class="small fragment">log n rounds · each round sorts pairs: O(n log n) with comparison sort → <b>O(n log² n)</b>; O(n) with radix sort → <b>O(n log n)</b>. Linear-time algorithms exist (DC3, SA-IS).</p>
+
+Note:
+⏱ 0:15–0:20. Your slides' banana example with a = 1, b = 2, n = 3: T0 = [2 1 3 1 3 1] → pairs (2,1),(1,3),(3,1),(1,3),(3,1),(1,−1) → re-number …
+
+---
+
+## Watch the doubling
+
+<div class="w" data-widget="suffixarray" data-text="banana" data-query="an"></div>
+
+Note:
+⏱ 0:20–0:30. Each frame shows the order after a round and the (rank, rank+k) pairs. Then the final SA with the LCP column (shared prefix with the row above highlighted). Last frame: binary search for "an" → rows with that prefix, 2 occurrences. Try "mississippi".
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="2">
+<p class="q">In prefix doubling, after the round with k = 2, suffixes are correctly ordered by their first…</p>
+<ol><li>2 characters</li><li>4 characters</li><li>3 characters</li><li>all characters</li></ol>
+<p class="explain">The pair (rank of first 2, rank of the next 2) orders by the first 4.</p>
+</div>
+
+--
+
+<!-- .slide: class="checkpoint" -->
+<div class="predict" data-answer="20" data-tol="0">
+<p class="q">n = 10⁶. How many doubling rounds at most? (⌈log₂ n⌉)</p>
+<p class="explain">2²⁰ ≈ 10⁶ → at most <b>20</b> rounds.</p>
+</div>
+
+Note:
+⏱ 0:30–0:35.
+
+---
+
+## Searching with a suffix array
+
+All occurrences of P are suffixes that **start with P** → they form a **contiguous block** of SA.
+
+- Two binary searches find the block: **O(m log n)** per query.
+- Count = block size; positions = the SA entries in the block.
+
+<p class="small">Build once, query many times — the same "preprocess, then search" pattern as kd-trees (session 4.2).</p>
+
+Note:
+⏱ 0:35–0:40. With LCP information it can be O(m + log n).
+
+---
+
+## The LCP array
+
+LCP[i] = length of the longest common prefix of the suffixes at SA[i − 1] and SA[i].
+
+<div class="cols">
+<div>
+
+**Kasai et al. (2001)**: compute it in **O(n)** by visiting suffixes in text order; the LCP drops by at most 1 from suffix i to suffix i + 1.
+
+</div>
+<div>
+
+| SA | suffix | LCP |
+|---|---|---|
+| 5 | a | – |
+| 3 | ana | 1 |
+| 1 | anana | 3 |
+| 0 | banana | 0 |
+| 4 | na | 0 |
+| 2 | nana | 2 |
+
+</div>
+</div>
+
+Note:
+⏱ 0:40–0:45.
+
+---
+
+## What SA + LCP give you
+
+<div class="cols">
+<div class="card"><h4>Longest repeated substring</h4><p>max LCP → "ana" in banana (length 3).</p></div>
+<div class="card"><h4>Number of distinct substrings</h4><p>n(n + 1)/2 − Σ LCP. banana: 21 − 6 = 15.</p></div>
+<div class="card"><h4>Pattern search & counting</h4><p>O(m log n) per query.</p></div>
+<div class="card"><h4>Longest common substring</h4><p>Of two strings: next part of today.</p></div>
+</div>
+
+<p class="small">Used in full-text indexes, data compression (Burrows–Wheeler transform in bzip2), and genome analysis (BWA, Bowtie read aligners).</p>
+
+Note:
+⏱ 0:45–0:55.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="predict" data-answer="15" data-tol="0">
+<p class="q">How many distinct non-empty substrings does banana have?</p>
+<p class="explain">n(n+1)/2 = 21 substrings counted with repetition; the LCP sum 1 + 3 + 0 + 0 + 2 = 6 counts the repeats → <b>15</b>.</p>
+</div>
+
+--
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="1">
+<p class="q">The longest substring that appears at least twice in s is given by…</p>
+<ol><li>the maximum value of the LCP array</li><li>the first suffix in SA</li><li>the longest suffix</li><li>the minimum LCP</li></ol>
+<p class="explain">Two occurrences of the same substring are prefixes of two suffixes that sit next to each other (or close) in SA.</p>
+</div>
+
+Note:
+⏱ 0:55–1:00.
+
+---
+
+<!-- .slide: class="divider" -->
+## Longest common substring
+
+Given X and Y, the longest string that is a **contiguous** substring of both.
+
+<p class="small">ABABC and BABCA → <b>BABC</b> (length 4). Not to be confused with the longest common <i>subsequence</i> (CLRS 15.4), which need not be contiguous.</p>
+
+<div class="cols3 small">
+<div class="card fragment"><h4>Naive</h4><p>Every substring of X searched in Y: O(m²·n) or worse.</p></div>
+<div class="card fragment"><h4>Dynamic programming</h4><p>O(mn) time and space (O(min) space with two rows).</p></div>
+<div class="card fragment"><h4>Suffix array of X#Y</h4><p>O((m + n) log(m + n)), or linear with a linear SA.</p></div>
+</div>
+
+Note:
+⏱ 1:00–1:04. Your LC_Substring slides.
+
+---
+
+## DP: longest common suffix
+
+$$L[i][j] = \begin{cases} L[i-1][j-1] + 1 & X_i = Y_j \\\\ 0 & \text{otherwise} \end{cases} \qquad \text{answer} = \max_{i,j} L[i][j]$$
+
+<div class="w" data-widget="lcsdp" data-a="ABABC" data-b="BABCA"></div>
+
+Note:
+⏱ 1:04–1:12. L[i][j] is the longest common SUFFIX of the prefixes X[1..i] and Y[1..j]; the longest common substring is the max over all cells. The diagonal of the maximum cell spells the answer (green). Try your ABAB / BABA example.
+
+---
+
+## With a suffix array of X # Y %
+
+<div class="w" data-widget="lcssa" data-a="ABABC" data-b="BABCA"></div>
+
+Note:
+⏱ 1:12–1:22. A common substring = a common prefix of a suffix from X and a suffix from Y. Scan adjacent SA rows: when one suffix comes from X and the other from Y, their LCP is a candidate. # stops common prefixes from running from X into Y.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="3">
+<p class="q">Why must the separator # in X#Y not appear in X or Y?</p>
+<ol><li>To make the string sortable</li><li>To keep n even</li><li>So that no common prefix can extend across the boundary between X and Y</li><li>It may appear; it's just for readability</li></ol>
+<p class="explain">Otherwise an LCP could include characters of both strings and report a "substring" that exists in neither.</p>
+</div>
+
+--
+
+<!-- .slide: class="activity" -->
+## Your turn
+
+1. Build the suffix array of **mississippi** (indices 0–10).
+2. Compute its LCP array and the longest repeated substring.
+3. Longest common substring of **mississippi** and **missouri** with the DP table (sketch).
+
+<div class="timer" data-seconds="480"></div>
+
+<details><summary>Answers</summary>
+1) SA = [10, 7, 4, 1, 0, 9, 8, 6, 3, 5, 2]. 2) LCP = [–, 1, 1, 4, 0, 0, 1, 0, 2, 1, 3] → max 4: "issi". 3) "miss" (length 4). Verify with the widgets.
+</details>
+
+Note:
+⏱ 1:22–1:33.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+## Exit ticket
+
+<div class="quiz" data-answer="2">
+<p class="q">To find all occurrences of P in a text with a suffix array, we…</p>
+<ol><li>scan the whole SA</li><li>binary-search the contiguous block of suffixes that start with P</li><li>hash every suffix</li><li>compute the Z-function of each suffix</li></ol>
+<p class="explain">O(m log n) per query after O(n log n) preprocessing.</p>
+</div>
+
+Note:
+⏱ 1:33–1:40. Reading: cp-algorithms "Suffix array" and "Kasai"; your slides on prefix doubling.
+
+---
+
+## Unit 2 map
+
+| Problem | Tool | Time |
+|---|---|---|
+| Find P in T | KMP · Z of P#T · Rabin–Karp | Θ(n + m) · Θ(n + m) · O(n + m) expected |
+| Longest palindrome | Manacher | O(n) |
+| Compare substrings fast | prefix hashes | O(1) after O(n) |
+| Many queries on one text | suffix array + LCP | O(n log n) build, O(m log n) query |
+| Longest common substring | DP · SA of X#Y | O(mn) · O((m+n) log(m+n)) |
+
+<p class="muted small">End of Unit 2. Next unit: graphs.</p>
+
+Note:
+Leave this on screen during questions.
+</textarea>
+</section>
+</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/markdown/markdown.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/math/math.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/zoom/zoom.js"></script>
+<script src="../assets/js/widgets.js"></script>
+<script src="../assets/js/widgets-strings.js"></script>
+<script src="../assets/js/course.js"></script>
+<script>Course.init();</script>
+</body>
+</html>
