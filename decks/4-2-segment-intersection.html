@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Segment Intersection and Range Searching · TC2038</title>
+<meta name="description" content="TC2038 Analysis and Design of Advanced Algorithms — Segment Intersection and Range Searching">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<link rel="stylesheet" href="../assets/css/course.css">
+</head>
+<body>
+<div class="reveal">
+<div class="slides">
+<!--
+  SLIDES ARE WRITTEN IN MARKDOWN BELOW
+  ---   new horizontal slide        --    new vertical slide (press ↓)
+  Note: everything after this line is a speaker note (press S)
+  Keep HTML blocks (quizzes, widgets) flush-left and without blank lines inside.
+-->
+<section data-markdown data-separator="^---$" data-separator-vertical="^--$" data-separator-notes="^Note:">
+<textarea data-template>
+<!-- .slide: class="title" -->
+<span class="kicker">TC2038 · Unit 4 · Session 4.2</span>
+
+# Line-segment intersection & range searching
+
+### The plane-sweep paradigm and kd-trees
+
+<p class="byline">Dr. Gildardo Sánchez Ante · Tecnológico de Monterrey<br><span class="tiny">de Berg et al., ch. 2 and ch. 5</span></p>
+
+Note:
+⏱ 0:00–0:02. Two big ideas today: (1) plane sweep — turn a 2-D problem into a sequence of 1-D problems; (2) kd-trees — answer "which points are in this rectangle?" without scanning everything. Covers 4.1 (intersection) and 4.3 (geometric search).
+
+---
+
+<!-- .slide: class="activity" -->
+## Warm-up: overlaying maps
+
+A GIS overlays a **road map** and a **river map**: 50,000 segments in total. Where do roads cross rivers (bridges!)?
+
+<div class="predict" data-answer="1249975000" data-tol="0">
+<p class="q">How many pairs does brute force test?</p>
+<p class="explain">n(n−1)/2 = 50,000 · 49,999 / 2 = <b>1,249,975,000</b> tests… but a real map has only a few thousand crossings. We want an algorithm whose cost depends on the <b>answer size</b>.</p>
+</div>
+
+Note:
+⏱ 0:02–0:06. Scenario 3 of the intro session: map overlay, one of the basic operations in GIS (de Berg ch. 2). Show the cities/rivers/railroads overlay image from your old slides if you like.
+
+---
+
+## Today
+
+<ul class="agenda">
+<li><span class="t">0:06</span> Problem & output-sensitive algorithms</li>
+<li><span class="t">0:12</span> The sweep-line idea</li>
+<li><span class="t">0:22</span> <b>Pulse check 1</b></li>
+<li><span class="t">0:26</span> Events, status, and the sweep in action</li>
+<li><span class="t">0:45</span> Analysis · degeneracies</li>
+<li><span class="t">0:52</span> <b>Pulse check 2</b></li>
+<li><span class="t">0:57</span> Geometric search: 1-D range queries</li>
+<li><span class="t">1:05</span> kd-trees</li>
+<li><span class="t">1:22</span> <b>Pulse check 3</b> · range trees</li>
+<li><span class="t">1:33</span> <b>Exit ticket</b></li>
+</ul>
+
+---
+
+## The problem
+
+> Given a set S of n closed segments in the plane, **report all intersection points** (and which segments meet there).
+
+<div class="cols">
+<div class="card fragment"><h4>Brute force: Θ(n²)</h4><p>Test every pair. Optimal in the worst case: n segments can have Θ(n²) intersections.</p></div>
+<div class="card fragment"><h4>Output-sensitive</h4><p>Running time depends on n <b>and</b> on k, the number of intersections: fast when k is small.</p></div>
+</div>
+
+Note:
+⏱ 0:06–0:10. Applications: map overlay (GIS), CSG boolean operations, collision detection, ray shooting in graphics, checking whether a polygon is simple.
+
+---
+
+## Idea 1: far apart can't intersect
+
+- The **y-interval** of a segment: its projection on the y-axis.
+- If the y-intervals of two segments don't overlap, they can't intersect. <!-- .element: class="fragment" -->
+- So: only test pairs that are **crossed by a common horizontal line**. <!-- .element: class="fragment" -->
+
+<p class="fragment callout">Imagine a horizontal <b>sweep line ℓ</b> moving downward over the plane, keeping track of the segments it currently crosses.</p>
+
+Note:
+⏱ 0:10–0:14. de Berg sweeps top-down with a horizontal line; your old slides used a vertical line left-to-right. Same algorithm, rotated 90°.
+
+---
+
+## Idea 2: only neighbors matter
+
+Even segments crossed by ℓ at the same time can be far apart **along ℓ**.
+
+- Keep the segments crossed by ℓ **ordered left to right**: the **status**.
+- Test a pair only when they become **adjacent** in the status. <!-- .element: class="fragment" -->
+
+<details><summary>Lemma (why this is enough)</summary>
+Let p be an intersection of s<sub>i</sub> and s<sub>j</sub>, with no third segment through p. Just above p, s<sub>i</sub> and s<sub>j</sub> are adjacent in the status. Since the sweep line starts above everything, at some event before reaching p they became adjacent — and at that moment we tested them. (de Berg, Lemma 2.1)
+</details>
+
+Note:
+⏱ 0:14–0:22. This is the crucial insight: if two segments intersect, there is a moment, just before reaching the intersection, when nothing is between them.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="3">
+<p class="q">An algorithm is <b>output-sensitive</b> when…</p>
+<ol><li>it prints its output faster</li><li>its running time depends only on the input size</li><li>its running time depends on the size of the output as well as the input</li><li>it is randomized</li></ol>
+<p class="explain">For segment intersection: O((n + k) log n), where k is the number of intersections.</p>
+</div>
+
+Note:
+⏱ 0:22–0:26.
+
+
+--
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="2">
+<p class="q">Which pairs does the sweep test for intersection?</p>
+<ol><li>All pairs crossed by the sweep line</li><li>Pairs that become adjacent in the left-to-right order along the sweep line</li><li>Pairs whose endpoints are closest</li><li>Pairs with overlapping x-intervals</li></ol>
+<p class="explain">Adjacency in the status is the filter that keeps the work proportional to n + k.</p>
+</div>
+
+---
+
+## Events: where the status changes
+
+The status changes only at **event points**:
+
+<div class="cols3">
+<div class="card fragment"><h4>Upper endpoint</h4><p><b>Insert</b> the segment; test it against its new left and right neighbors.</p></div>
+<div class="card fragment"><h4>Lower endpoint</h4><p><b>Delete</b> it; its two former neighbors become adjacent → test them.</p></div>
+<div class="card fragment"><h4>Intersection</h4><p><b>Report</b> it; the two segments <b>swap</b> order; test each with its new outer neighbor.</p></div>
+</div>
+
+<p class="fragment small">Intersection events are <b>discovered on the fly</b> and inserted into the event queue — only if they lie below the sweep line.</p>
+
+Note:
+⏱ 0:26–0:30.
+
+---
+
+## The sweep in action
+
+<div class="w" data-widget="sweep" data-n="7" data-h="290"></div>
+
+Note:
+⏱ 0:30–0:42. Step manually for the first 6–8 events, asking "what will be tested now?" before each Next. Then play. Point out: hollow gray dots = events in the queue; green rings = intersection events just discovered; the status chips below show the left-to-right order (watch two chips swap at an intersection). Final caption compares pair tests vs n(n−1)/2. Click "New segments" and repeat with a student narrating.
+
+---
+
+## Data structures
+
+<div class="cols">
+<div class="card"><h4>Event queue Q</h4><p>Balanced BST ordered by y (then x). Insert / extract next / membership test in <b>O(log n)</b>. Avoid inserting the same event twice.</p></div>
+<div class="card"><h4>Status T</h4><p>Balanced BST ordered left-to-right along ℓ. The order is <b>implicit</b>: compare segments by their x at the current sweep position. Insert / delete / neighbors in <b>O(log n)</b>.</p></div>
+</div>
+
+```text
+FindIntersections(S):
+    Q ← all endpoints;  T ← ∅
+    while Q ≠ ∅:
+        p ← next event (highest);  HandleEventPoint(p)
+```
+
+Note:
+⏱ 0:42–0:45. In C++: std::set with a custom comparator that reads a global "current y" — a classic contest trick (careful with degeneracies).
+
+---
+
+## Analysis
+
+<p>de Berg, Theorem 2.4: all intersection points can be reported in</p>
+
+$$O(n \log n + k \log n) \text{ time and } O(n) \text{ space}$$
+
+- 2n endpoints + k intersections = **2n + k events**, each handled in O(log n). <!-- .element: class="fragment" -->
+- At most **2 new tests** per event → the queue never grows beyond O(n) if we only keep intersections of currently adjacent pairs. <!-- .element: class="fragment" -->
+- When k = Θ(n²) it's slightly worse than brute force — that's the price of output sensitivity. <!-- .element: class="fragment" -->
+
+Note:
+⏱ 0:45–0:49. Optimal is O(n log n + k) (Chazelle–Edelsbrunner 1992, Balaban 1995) but much harder.
+
+---
+
+## Degenerate cases
+
+- **Horizontal segments**: their "upper" endpoint is the left one.
+- **Several segments through one point**: handle sets U(p) (starting), L(p) (ending), C(p) (containing p in the interior) all at once; reverse the order of C(p).
+- **Overlapping collinear segments**: report the overlap, not infinitely many points.
+
+<p class="small muted">de Berg's HandleEventPoint deals with all of these uniformly.</p>
+
+Note:
+⏱ 0:49–0:52. Phase 2 of the design methodology from last session.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="1">
+<p class="q">When the sweep line reaches the <b>lower endpoint</b> of segment s, what pair is tested?</p>
+<ol><li>The left and right neighbors of s, which now become adjacent</li><li>s with every segment in the status</li><li>s with its left neighbor only</li><li>None: lower endpoints never create tests</li></ol>
+<p class="explain">Deleting s makes its two former neighbors adjacent — they could intersect below.</p>
+</div>
+
+Note:
+⏱ 0:52–0:57.
+
+
+--
+
+<!-- .slide: class="checkpoint" -->
+<div class="predict" data-answer="2010" data-tol="0">
+<p class="q">n = 1,000 segments, k = 10 intersections. How many events are processed?</p>
+<p class="explain">2n endpoints + k intersections = 2,000 + 10 = <b>2,010</b> events, each O(log n): roughly 2·10⁴ steps vs 5·10⁵ pair tests.</p>
+</div>
+
+---
+
+<!-- .slide: class="divider" -->
+## Geometric search
+
+> "All employees born between 1980 and 1995 who earn between 30k and 50k per month."
+
+That's a **rectangular range query** on points (birth year, salary).
+
+<p class="small">Preprocess the points once; then answer many queries fast.</p>
+
+Note:
+⏱ 0:57–1:00. de Berg ch. 5 starts exactly with this database example.
+
+---
+
+## 1-D first
+
+<div class="cols">
+<div>
+
+Points on a line, query [x, x′]:
+
+- Store them in a **balanced BST**.
+- Search for x and x′; report all leaves between the two search paths.
+
+</div>
+<div class="card">
+<h4>Cost</h4>
+<p>Storage O(n) · build O(n log n)</p>
+<p>Query <b>O(log n + k)</b>, k = number of reported points.</p>
+</div>
+</div>
+
+<p class="small fragment">Can we split the plane the same way? Alternate the splitting direction: <b>kd-tree</b>.</p>
+
+Note:
+⏱ 1:00–1:05.
+
+---
+
+## kd-tree: build, then query
+
+<div class="w" data-widget="kdtree" data-n="16" data-h="300"></div>
+
+Note:
+⏱ 1:05–1:15. Build phase: blue = vertical split (by x, even depth), orange = horizontal split (by y, odd depth), each at the median. Query phase: gray regions are pruned (disjoint); green regions are fully inside → whole subtree reported without tests; blue box = node being visited. Press "New query range" several times.
+
+---
+
+## kd-tree in numbers
+
+| Structure | Storage | Build | Query |
+|---|---|---|---|
+| kd-tree | O(n) | O(n log n) | **O(√n + k)** |
+| Range tree | O(n log n) | O(n log n) | **O(log² n + k)** |
+| Range tree + fractional cascading | O(n log n) | O(n log n) | O(log n + k) |
+
+<details><summary>Why √n for the kd-tree?</summary>
+A vertical query edge can only cross regions that it "stabs". Going down two levels, a vertical line stabs at most 2 of the 4 grandchildren: Q(n) = 2 + 2Q(n/4) = O(√n). Regions fully inside are reported in time linear in their output.
+</details>
+
+Note:
+⏱ 1:15–1:22. de Berg Theorems 5.5 and 5.8. Trade-off: memory vs query time. kd-trees are also the standard structure for nearest-neighbor search in ML libraries (scikit-learn's KDTree).
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="2">
+<p class="q">During a kd-tree query, a node whose region lies <b>completely inside</b> the query rectangle…</p>
+<ol><li>is pruned</li><li>reports all points in its subtree without further tests</li><li>is split again</li><li>is visited twice</li></ol>
+<p class="explain">That's why the k term is additive: reporting is linear in the output.</p>
+</div>
+
+Note:
+⏱ 1:22–1:27.
+
+
+--
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="3">
+<p class="q">You have 10⁷ points and will answer 10⁹ queries, memory is plentiful. Best choice?</p>
+<ol><li>Scan all points per query</li><li>kd-tree</li><li>Range tree (with fractional cascading)</li><li>Sort by x only</li></ol>
+<p class="explain">Many queries justify the extra O(n log n) storage for polylogarithmic query time.</p>
+</div>
+
+---
+
+<!-- .slide: class="activity" -->
+## Your turn
+
+Segments (top endpoint → bottom endpoint):
+
+s1: (0, 10) → (8, 0) · s2: (6, 9) → (1, 1) · s3: (9, 8) → (5, 2)
+
+1. List the event queue (top to bottom).
+2. Write the status after each event and the tests performed.
+3. How many intersections are reported?
+
+<div class="timer" data-seconds="360"></div>
+
+<details><summary>Check</summary>
+Endpoint events: (0,10) s1↑ · (6,9) s2↑ · (9,8) s3↑ · (5,2) s3↓ · (1,1) s2↓ · (8,0) s1↓. Inserting s2 (status s1, s2) discovers s1 ∩ s2 ≈ (3.72, 5.35). Inserting s3 (status s1, s2, s3): s2–s3 don't meet. At the s1 ∩ s2 event they swap → status s2, s1, s3 → s1 and s3 are now adjacent → discover s1 ∩ s3 ≈ (5.64, 2.95). Total: <b>2 intersections</b>. The second one was found only thanks to the swap. (With 3 segments there are no savings; they appear for large n and small k.)
+</details>
+
+Note:
+⏱ 1:27–1:33. Pairs; verify the s1–s3 non-intersection with an orientation test.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+## Exit ticket
+
+<div class="quiz" data-answer="4">
+<p class="q">The plane-sweep algorithm for segment intersection runs in…</p>
+<ol><li>O(n²) always</li><li>O(n log n) always</li><li>O(k) where k is the number of intersections</li><li>O((n + k) log n)</li></ol>
+<p class="explain">2n + k events × O(log n) per event (de Berg Thm 2.4).</p>
+</div>
+
+Note:
+⏱ 1:33–1:40. Muddiest point. Reading: de Berg 2.1 and 5.1–5.2.
+
+---
+
+## Takeaways
+
+- **Plane sweep**: a moving line + an **event queue** + a **status** structure turns a 2-D problem into a sequence of 1-D updates.
+- Only **neighbors in the status** can intersect next → O((n + k) log n), output-sensitive.
+- **Geometric search**: preprocess once, query many times.
+- **kd-tree**: O(n) space, O(√n + k) query · **range tree**: O(n log n) space, O(log² n + k).
+
+<p class="muted small">Next: convex hulls, polytopes, and the duality between points and lines.</p>
+</textarea>
+</section>
+</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/markdown/markdown.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/math/math.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/zoom/zoom.js"></script>
+<script src="../assets/js/widgets.js"></script>
+<script src="../assets/js/widgets-geometry.js"></script>
+<script src="../assets/js/course.js"></script>
+<script>Course.init();</script>
+</body>
+</html>

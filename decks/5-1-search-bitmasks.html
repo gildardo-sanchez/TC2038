@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Search Fundamentals and Bitmasks · TC2038</title>
+<meta name="description" content="TC2038 Analysis and Design of Advanced Algorithms — Search Fundamentals and Bitmasks">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<link rel="stylesheet" href="../assets/css/course.css">
+</head>
+<body>
+<div class="reveal">
+<div class="slides">
+<!--
+  SLIDES ARE WRITTEN IN MARKDOWN BELOW
+  ---   new horizontal slide        --    new vertical slide (press ↓)
+  Note: everything after this line is a speaker note (press S)
+  Keep HTML blocks (quizzes, widgets) flush-left and without blank lines inside.
+-->
+<section data-markdown data-separator="^---$" data-separator-vertical="^--$" data-separator-notes="^Note:">
+<textarea data-template>
+<!-- .slide: class="title" -->
+<span class="kicker">TC2038 · Unit 5 · Session 5.1</span>
+
+# Search fundamentals & bitmasks
+
+### Blind search strategies and backtracking at the speed of bits
+
+<p class="byline">Dr. Gildardo Sánchez Ante · Tecnológico de Monterrey<br><span class="tiny">Russell & Norvig, <i>AI: A Modern Approach</i>, ch. 3 · Halim & Halim, <i>Competitive Programming</i>, ch. 3 & 8</span></p>
+
+Note:
+⏱ 0:00–0:02. Unit 5 in four sessions: (5.1) blind search + bitmasks, (5.2) heavy pruning + meet in the middle, (5.3) A* and IDA*, (5.4) local search: hill climbing, simulated annealing, genetic algorithms and ant colonies. Syllabus 5.1 and 5.2 today.
+
+---
+
+<!-- .slide: class="activity" -->
+## Warm-up: the 15-puzzle
+
+<div class="cols">
+<div>
+
+Sam Loyd's 15-puzzle (1880s) has **16!/2 ≈ 10¹³** reachable states.
+
+- What is a **state**? An **action**? The **goal**?
+- Could we store all states in memory?
+
+</div>
+<div class="card">
+<h4>Rule of thumb</h4>
+<p>1 state ≈ 8 bytes → 10¹³ states ≈ 80 TB. We must <b>generate the graph as we explore it</b>.</p>
+</div>
+</div>
+
+<div class="timer" data-seconds="120"></div>
+
+Note:
+⏱ 0:02–0:07. Pairs discuss for 2 minutes. Elicit: state = arrangement of tiles; actions = move the blank up/down/left/right; goal test; path cost = number of moves. This is the "problem formulation" of your Blind Search slides.
+
+---
+
+## Today
+
+<ul class="agenda">
+<li><span class="t">0:07</span> State-space search: the vocabulary</li>
+<li><span class="t">0:15</span> BFS and DFS</li>
+<li><span class="t">0:30</span> <b>Pulse check 1</b></li>
+<li><span class="t">0:35</span> Depth-limited, iterative deepening, uniform cost</li>
+<li><span class="t">0:52</span> <b>Pulse check 2</b></li>
+<li><span class="t">0:57</span> Bitmasks: sets in one integer</li>
+<li><span class="t">1:10</span> Backtracking with bitmasks: N-queens</li>
+<li><span class="t">1:25</span> <b>Pulse check 3</b> · hands-on</li>
+<li><span class="t">1:33</span> <b>Exit ticket</b></li>
+</ul>
+
+---
+
+## State-space search
+
+A problem is described by:
+
+<div class="cols3">
+<div class="card"><h4>States</h4><p>Initial state, goal test.</p></div>
+<div class="card"><h4>Actions & transition model</h4><p>What can I do, and where does it take me?</p></div>
+<div class="card"><h4>Path cost</h4><p>Sum of step costs.</p></div>
+</div>
+
+- **Expand** a node = generate its children. **Test** = is it a goal? <!-- .element: class="fragment" -->
+- Nodes are **undiscovered**, in the **frontier** (open, fringe), or **expanded** (closed). <!-- .element: class="fragment" -->
+- A *node* is a data structure (state, parent, action, g); a *state* is a configuration. <!-- .element: class="fragment" -->
+
+Note:
+⏱ 0:07–0:12. All blind strategies are the same loop; they differ ONLY in which frontier node is expanded next.
+
+---
+
+## Four criteria
+
+| Criterion | Question |
+|---|---|
+| **Completeness** | Does it always find a solution when one exists? |
+| **Optimality** | Does it find the lowest-cost solution? |
+| **Time** | How many nodes are generated? |
+| **Space** | How many nodes in memory at once? |
+
+<p class="small">Measured with <b>b</b> = branching factor, <b>d</b> = depth of the shallowest goal, <b>m</b> = maximum depth.</p>
+
+Note:
+⏱ 0:12–0:15.
+
+---
+
+## Breadth-first vs depth-first
+
+<div class="w" data-widget="treesearch" data-algo="bfs" data-goal="11" data-h="250"></div>
+
+Note:
+⏱ 0:15–0:25. Exactly the tree of your old slides (nodes 1–15). BFS: new nodes at the END of the fringe (FIFO queue). Play, then switch to DFS: new nodes at the FRONT (LIFO stack). Compare "max FRINGE": BFS keeps whole levels in memory; DFS only one path plus siblings. Change the goal to 15 and to 2 and compare node counts.
+
+---
+
+## The price of breadth
+
+<div class="cols">
+<div>
+
+BFS generates 1 + b + b² + … + b<sup>d</sup> = **O(b<sup>d</sup>)** nodes — and keeps them all.
+
+| depth | nodes | time | memory |
+|---|---|---|---|
+| 8 | 10⁸ | 2 min | 103 GB |
+| 10 | 10¹⁰ | 3 h | 10 TB |
+| 12 | 10¹² | 13 days | 1 PB |
+| 16 | 10¹⁶ | 350 years | 10 EB |
+
+</div>
+<div class="card">
+<h4>Lesson (Russell & Norvig)</h4>
+<p>b = 10, one million nodes/s, 1 KB per node. <b>Memory runs out long before time does.</b></p>
+</div>
+</div>
+
+Note:
+⏱ 0:25–0:30. R&N, Fig. 3.13. Exponential-complexity search problems cannot be solved by uninformed methods for any but the smallest instances.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="2">
+<p class="q">Which data structure turns the generic search loop into DFS?</p>
+<ol><li>FIFO queue</li><li>LIFO stack (or recursion)</li><li>Priority queue by path cost</li><li>Hash set</li></ol>
+<p class="explain">The deepest (most recently generated) node is expanded next.</p>
+</div>
+
+--
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="3">
+<p class="q">DFS on a tree with b = 3 and maximum depth m = 20 keeps at most how many nodes in memory?</p>
+<ol><li>3²⁰</li><li>20</li><li>about b·m = 60</li><li>1</li></ol>
+<p class="explain">One path of length m plus the unexplored siblings along it: O(bm). That's DFS's big advantage.</p>
+</div>
+
+Note:
+⏱ 0:30–0:35.
+
+---
+
+## Depth-limited & iterative deepening
+
+<div class="cols">
+<div>
+
+**Depth-limited (DLS):** DFS that doesn't expand below depth ℓ. Outcomes: solution · failure · **cutoff**.
+
+**Iterative deepening (IDS):** run DLS with ℓ = 0, 1, 2, … until a solution appears.
+
+</div>
+<div class="card">
+<h4>Best of both worlds</h4>
+<p>Complete and optimal (unit costs) like BFS, memory <b>O(bd)</b> like DFS.</p>
+</div>
+</div>
+
+Note:
+⏱ 0:35–0:43. Press ↓ for the animation. Play: the dashed orange line marks the current depth limit. Upper levels are regenerated every iteration — is that wasteful?
+
+
+--
+
+## Iterative deepening in action
+
+<div class="w" data-widget="treesearch" data-algo="ids" data-goal="11" data-h="260"></div>
+
+---
+
+## Isn't IDS wasteful?
+
+Nodes generated: $d\ b + (d-1)\ b^2 + \dots + 1 \cdot b^d = O(b^d)$
+
+<div class="predict" data-answer="123450" data-tol="0">
+<p class="q">b = 10, d = 5: IDS generates 5·10 + 4·100 + 3·1,000 + 2·10,000 + 1·100,000 = ?</p>
+<p class="explain"><b>123,450</b> nodes vs 111,110 for BFS: only ~11% more, with exponentially less memory. Most nodes live at the bottom level, which IDS generates only once. R&N: "IDS is the preferred uninformed method when the search space is large and the depth of the solution is unknown."</p>
+</div>
+
+Note:
+⏱ 0:43–0:47. Your slides prove the bound b^d (b/(b−1))².
+
+---
+
+## Uniform-cost search & the summary
+
+<p class="small"><b>Uniform cost (Dijkstra):</b> expand the frontier node with the smallest path cost g(n) — priority queue. Optimal for any positive step costs.</p>
+
+| | BFS | Uniform cost | DFS | Depth-limited | IDS | Bidirectional |
+|---|---|---|---|---|---|---|
+| Complete? | yes¹ | yes¹² | no | no | yes¹ | yes¹ |
+| Optimal? | yes³ | yes | no | no | yes³ | yes³ |
+| Time | b<sup>d</sup> | b<sup>1+⌊C*/ε⌋</sup> | b<sup>m</sup> | b<sup>ℓ</sup> | b<sup>d</sup> | b<sup>d/2</sup> |
+| Space | b<sup>d</sup> | b<sup>1+⌊C*/ε⌋</sup> | bm | bℓ | bd | b<sup>d/2</sup> |
+
+<p class="tiny muted">¹ b finite · ² step costs ≥ ε &gt; 0 · ³ all step costs equal. (R&N, Fig. 3.21)</p>
+
+Note:
+⏱ 0:47–0:52. Bidirectional: two searches meeting in the middle — b^(d/2) + b^(d/2) ≪ b^d. Same idea as "meet in the middle" next session!
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="4">
+<p class="q">Solution depth unknown, b = 10, memory is limited. Which blind strategy?</p>
+<ol><li>BFS</li><li>DFS</li><li>Depth-limited with ℓ = 5</li><li>Iterative deepening</li></ol>
+<p class="explain">Complete and optimal (unit costs) with O(bd) memory.</p>
+</div>
+
+--
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="1">
+<p class="q">Steps have different costs (1, 5, 20). Which strategy is optimal?</p>
+<ol><li>Uniform-cost search</li><li>BFS</li><li>IDS</li><li>DFS</li></ol>
+<p class="explain">BFS and IDS minimize the number of steps, not the total cost.</p>
+</div>
+
+Note:
+⏱ 0:52–0:57.
+
+---
+
+<!-- .slide: class="divider" -->
+## Bitmasks: a set in one integer
+
+A subset of {0, 1, …, n−1} ↔ an n-bit integer: bit i = 1 ⇔ element i is in the set.
+
+<p class="small">Union, intersection, membership, "remove the lowest element"… each in <b>one CPU instruction</b>.</p>
+
+Note:
+⏱ 0:57–1:00. Halim & Halim, CP3 §2.2 and §8.2. Works for n ≤ 64 (unsigned long long); std::bitset for more.
+
+---
+
+## Play with bits
+
+<div class="w" data-widget="bits"></div>
+
+Note:
+⏱ 1:00–1:05. Click bits. Ask before revealing: "what does x & (x−1) do?" (removes the lowest set bit — the loop `for (t = x; t; t &= t − 1)` counts bits). x & −x isolates the lowest set bit (two's complement).
+
+---
+
+## Bitmask cheat sheet (C++)
+
+```cpp [1-4|6-8|10-12]
+bool has(int S, int i)  { return S >> i & 1; }        // i ∈ S ?
+int  add(int S, int i)  { return S | (1 << i); }      // S ∪ {i}
+int  del(int S, int i)  { return S & ~(1 << i); }     // S \ {i}
+int  low(int S)         { return S & -S; }            // lowest element (as a bit)
+
+for (int S = 0; S < (1 << n); S++) { /* every subset of n items */ }
+for (int T = S; T; T = (T - 1) & S) { /* every non-empty submask of S */ }
+__builtin_popcount(S);  __builtin_ctz(S);             // |S| , index of lowest bit
+
+// DP over subsets (TSP, Held–Karp): dp[S][v] = shortest path visiting S, ending at v
+// states 2^n · n, transitions n  →  O(2^n · n²)  instead of O(n!)
+```
+
+Note:
+⏱ 1:05–1:10. Enumerating all submasks of all masks costs 3ⁿ total. Held–Karp with n = 20: 2²⁰·400 ≈ 4·10⁸ vs 20! ≈ 2.4·10¹⁸.
+
+---
+
+## N-queens with three masks
+
+<div class="w" data-widget="nqbits" data-n="6"></div>
+
+Note:
+⏱ 1:10–1:20. One row per level. cols marks occupied columns; ld/rd mark the squares attacked along the diagonals in THIS row. available = ~(cols | ld | rd); iterate with bit = avail & −avail. No board, no loops to check attacks. Press "Count all solutions": N = 13 (73,712 solutions) in well under a second in JavaScript. Compare with the array-based backtracking from session 1.2.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="predict" data-answer="4" data-tol="0">
+<p class="q">S = 44 (binary 101100). What is S &amp; −S?</p>
+<p class="explain">The lowest set bit of 101100 is bit 2 → <b>4</b>. And S &amp; (S − 1) = 101000 = 40.</p>
+</div>
+
+Note:
+⏱ 1:20–1:25. Ask them to type x = 44 in the bit playground (click bits 5, 3, 2) to verify.
+
+---
+
+<!-- .slide: class="activity" -->
+## Your turn
+
+1. Write the mask for the set {0, 3, 4} and its value.
+2. How many subsets does the loop `for (S = 0; S < 1 << 20; S++)` visit?
+3. In 4-queens, after placing a queen in column 1 (bit 1) of row 0, compute cols, ld, rd for row 1 and the available squares.
+
+<div class="timer" data-seconds="360"></div>
+
+<details><summary>Answers</summary>
+1) 11001₂ = 25. 2) 2²⁰ = 1,048,576. 3) bit = 0010; cols = 0010, ld = 0100, rd = 0001 → available = ~0111 &amp; 1111 = <b>1000</b>: only bit 3.
+</details>
+
+Note:
+⏱ 1:25–1:33.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+## Exit ticket
+
+<div class="quiz" data-answer="3">
+<p class="q">Iterative deepening is preferred over BFS mainly because…</p>
+<ol><li>it is faster asymptotically</li><li>it finds cheaper solutions with arbitrary step costs</li><li>it needs only O(bd) memory with the same completeness and optimality (unit costs)</li><li>it never revisits nodes</li></ol>
+<p class="explain">Time is O(bᵈ) for both; memory is the difference.</p>
+</div>
+
+--
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="2">
+<p class="q">What does <code>x &amp; (x − 1)</code> compute?</p>
+<ol><li>x − 1</li><li>x with its lowest set bit cleared</li><li>the lowest set bit of x</li><li>x divided by 2</li></ol>
+<p class="explain">Subtracting 1 flips the lowest 1 and the zeros below it.</p>
+</div>
+
+Note:
+⏱ 1:33–1:40. Reading: R&N 3.1–3.4; CP3 2.2 (bit manipulation) and 8.2.
+
+---
+
+## Takeaways
+
+- Search = expand + test; strategies differ only in **which frontier node** comes next.
+- **BFS**: complete, optimal (unit cost), O(bᵈ) memory. **DFS**: O(bm) memory, not complete/optimal.
+- **IDS**: the best blind strategy for unknown depth. **UCS**: optimal for any positive costs.
+- **Bitmasks**: sets as integers → fast backtracking (N-queens) and DP over subsets.
+
+<p class="muted small">Next: prune harder — and meet in the middle.</p>
+</textarea>
+</section>
+</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/markdown/markdown.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/math/math.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/zoom/zoom.js"></script>
+<script src="../assets/js/widgets.js"></script>
+<script src="../assets/js/widgets-search.js"></script>
+<script src="../assets/js/course.js"></script>
+<script>Course.init();</script>
+</body>
+</html>

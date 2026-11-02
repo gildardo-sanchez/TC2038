@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A* and IDA* · TC2038</title>
+<meta name="description" content="TC2038 Analysis and Design of Advanced Algorithms — A* and IDA*">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<link rel="stylesheet" href="../assets/css/course.css">
+</head>
+<body>
+<div class="reveal">
+<div class="slides">
+<!--
+  SLIDES ARE WRITTEN IN MARKDOWN BELOW
+  ---   new horizontal slide        --    new vertical slide (press ↓)
+  Note: everything after this line is a speaker note (press S)
+  Keep HTML blocks (quizzes, widgets) flush-left and without blank lines inside.
+-->
+<section data-markdown data-separator="^---$" data-separator-vertical="^--$" data-separator-notes="^Note:">
+<textarea data-template>
+<!-- .slide: class="title" -->
+<span class="kicker">TC2038 · Unit 5 · Session 5.3</span>
+
+# A* and IDA*
+
+### Informed search: let a good guess guide the way
+
+<p class="byline">Dr. Gildardo Sánchez Ante · Tecnológico de Monterrey<br><span class="tiny">Russell & Norvig, <i>AI: A Modern Approach</i>, §3.5–3.6 · Hart, Nilsson & Raphael (1968) · Korf (1985)</span></p>
+
+Note:
+⏱ 0:00–0:02. Syllabus 5.5. Blind search knows only "goal / not goal". Today the search gets a compass: a heuristic estimate of the remaining cost.
+
+---
+
+<!-- .slide: class="activity" -->
+## Warm-up: you're in a maze
+
+You must reach the exit **G** from **S**. You can't see the walls ahead, but you know **where G is**.
+
+<div class="quiz" data-answer="3">
+<p class="q">Which cell do you explore first?</p>
+<ol><li>The one you discovered first (BFS)</li><li>The one you discovered last (DFS)</li><li>The one that seems closest to G, accounting for how far you've already walked</li><li>A random one</li></ol>
+<p class="explain">"Cost so far + estimated cost to go": that's exactly A*'s f(n) = g(n) + h(n).</p>
+</div>
+
+Note:
+⏱ 0:02–0:05.
+
+---
+
+## Today
+
+<ul class="agenda">
+<li><span class="t">0:05</span> Best-first search: greedy vs A*</li>
+<li><span class="t">0:12</span> The grid lab</li>
+<li><span class="t">0:28</span> <b>Pulse check 1</b></li>
+<li><span class="t">0:33</span> Admissible & consistent heuristics, optimality</li>
+<li><span class="t">0:50</span> <b>Pulse check 2</b></li>
+<li><span class="t">0:55</span> Designing heuristics: the 8-puzzle</li>
+<li><span class="t">1:05</span> IDA*: A* with O(d) memory</li>
+<li><span class="t">1:22</span> <b>Pulse check 3</b></li>
+<li><span class="t">1:33</span> <b>Exit ticket</b></li>
+</ul>
+
+---
+
+## Best-first search
+
+Expand the frontier node with the smallest **evaluation function** f(n):
+
+<div class="cols3">
+<div class="card fragment"><h4>Uniform cost</h4><p>f(n) = g(n)</p><p class="muted">cost so far — blind, optimal</p></div>
+<div class="card fragment"><h4>Greedy best-first</h4><p>f(n) = h(n)</p><p class="muted">estimated cost to go — fast, not optimal</p></div>
+<div class="card fragment"><h4>A*</h4><p>f(n) = g(n) + h(n)</p><p class="muted">estimated cost of the cheapest solution through n</p></div>
+</div>
+
+<p class="fragment small">h(n) is a <b>heuristic</b>: problem-specific knowledge, e.g., straight-line or Manhattan distance to the goal.</p>
+
+Note:
+⏱ 0:05–0:12. A* was invented for the Shakey robot at SRI (Hart, Nilsson, Raphael, 1968).
+
+---
+
+## Grid lab
+
+<div class="w" data-widget="gridsearch" data-algo="astar" data-preset="wall" data-h="300"></div>
+
+Note:
+⏱ 0:12–0:28. The widget opens at the final state; press ↺ then Play to watch. Compare "expanded" for BFS, Dijkstra, Greedy and A* on the wall preset: Greedy dives into the U-shaped trap; A* explores much less than BFS and still finds a shortest path. Then "Mud preset" (cells with cost 5): BFS/DFS ignore costs and walk through mud; Dijkstra and A* go around. Weighted A* (w = 3): far fewer expansions, path may be slightly longer. Let students draw their own walls and drag S and G.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="2">
+<p class="q">On the "wall" map, why does greedy best-first expand so many cells?</p>
+<ol><li>Because it's breadth-first</li><li>It ignores g(n): it rushes toward G, hits the wall, and must flood around it</li><li>Because Manhattan distance is wrong</li><li>It doesn't — it's always optimal</li></ol>
+<p class="explain">Greedy only looks at the estimate; it can get trapped and return long paths.</p>
+</div>
+
+--
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="1">
+<p class="q">With h(n) = 0 for every node, A* behaves like…</p>
+<ol><li>Uniform-cost search (Dijkstra)</li><li>Greedy best-first</li><li>DFS</li><li>IDS</li></ol>
+<p class="explain">f = g. A* generalizes Dijkstra; a good h focuses the search toward the goal.</p>
+</div>
+
+Note:
+⏱ 0:28–0:33.
+
+---
+
+## When is A* optimal?
+
+<div class="cols">
+<div>
+
+**Admissible:** h never overestimates.
+
+$$h(n) \le h^\ast(n) \quad \text{(true cost to the goal)}$$
+
+**Consistent (monotone):** triangle inequality.
+
+$$h(n) \le c(n, n') + h(n')$$
+
+</div>
+<div class="card">
+<h4>Theorems (R&N §3.5)</h4>
+<p>Tree search: admissible ⇒ A* optimal.</p>
+<p>Graph search: consistent ⇒ A* optimal, and f never decreases along a path.</p>
+<p>Consistent ⇒ admissible.</p>
+</div>
+</div>
+
+Note:
+⏱ 0:33–0:40. Intuition: an optimistic h never lets A* close the door on the optimal path. Proof sketch: when a suboptimal goal G2 is popped, some node n on the optimal path is in the frontier with f(n) ≤ C* < f(G2) — contradiction.
+
+---
+
+## Contours, efficiency, cost
+
+<div class="cols">
+<div>
+
+- A* expands all nodes with f(n) &lt; C* and some with f(n) = C*: its explored region looks like **contours** stretched toward the goal.
+- **Optimally efficient**: no optimal algorithm with the same h expands fewer nodes (up to ties).
+- **Problem: memory.** A* keeps every generated node — exponential space.
+
+</div>
+<div class="card">
+<h4>Weighted A*</h4>
+<p>f = g + w·h (w &gt; 1): explores far less, and the solution costs at most <b>w × optimal</b>. Used in games and robotics when "good enough, now" wins.</p>
+</div>
+</div>
+
+Note:
+⏱ 0:40–0:50. Video games (pathfinding), GPS routing (with landmarks/contraction hierarchies), robotics, puzzle solving, NLP decoding.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="4">
+<p class="q">Grid with 4-neighbor moves of cost 1. Which heuristic is <b>not</b> admissible?</p>
+<ol><li>Manhattan distance</li><li>Euclidean distance</li><li>h = 0</li><li>2 × Manhattan distance</li></ol>
+<p class="explain">It can overestimate (e.g., by 2× in an open field), so A* may return a suboptimal path — that's weighted A*.</p>
+</div>
+
+--
+
+<!-- .slide: class="checkpoint" -->
+<div class="predict" data-answer="12" data-tol="0">
+<p class="q">In the grid lab, S = (3, 7), G = (22, 7) and there's a wall in between. h(S) with Manhattan distance = |3 − 22| + |7 − 7| = 19. The optimal path around the wall costs 31. By how much did h(S) underestimate?</p>
+<p class="explain">31 − 19 = <b>12</b>. Underestimating is allowed (admissible); the closer to the truth, the fewer nodes A* expands.</p>
+</div>
+
+Note:
+⏱ 0:50–0:55. If students changed the map, numbers differ; adapt.
+
+---
+
+## Designing heuristics: the 8-puzzle
+
+<div class="cols">
+<div>
+
+- **h₁** = number of misplaced tiles.
+- **h₂** = sum of Manhattan distances of tiles to their goal squares.
+- Both are exact costs of **relaxed problems** (tiles can jump anywhere / tiles can move through each other) ⇒ admissible.
+- h₂ ≥ h₁ always: h₂ **dominates** h₁ ⇒ A* with h₂ never expands more nodes.
+
+</div>
+<div>
+
+| depth d | IDS | A*(h₁) | A*(h₂) |
+|---|---|---|---|
+| 6 | 680 | 20 | 18 |
+| 12 | 3,644,035 | 227 | 73 |
+| 24 | — | 39,135 | 1,641 |
+
+<p class="tiny muted">Average nodes generated, R&N Fig. 3.29.</p>
+
+</div>
+</div>
+
+Note:
+⏱ 0:55–1:05. 9!/2 = 181,440 reachable states. Pattern databases (store exact costs of sub-puzzles) push this much further: they solve the 15-puzzle and Rubik's cube optimally.
+
+---
+
+## IDA*: iterative deepening A*
+
+<div class="cols">
+<div>
+
+1. bound ← h(start)
+2. DFS, but prune any node with **f = g + h &gt; bound**.
+3. Not found? bound ← **smallest f that exceeded it**; repeat.
+
+</div>
+<div class="card">
+<h4>Why?</h4>
+<p>Same optimality as A* (admissible h), but memory <b>O(d)</b> instead of exponential. Korf (1985): first optimal solutions of random 15-puzzles.</p>
+</div>
+</div>
+
+```cpp
+int search(int g, int bound) {            // returns FOUND or the next bound
+    int f = g + h(state);
+    if (f > bound) return f;
+    if (isGoal(state)) return FOUND;
+    int next = INF;
+    for (move m : moves(state)) { apply(m); int t = search(g + 1, bound); undo(m);
+        if (t == FOUND) return FOUND;  next = min(next, t); }
+    return next;
+}
+```
+
+Note:
+⏱ 1:05–1:12. Exactly IDS from session 5.1 with "depth" replaced by "f-cost".
+
+---
+
+## IDA* on the 8-puzzle
+
+<div class="w" data-widget="puzzle8" data-preset="medium"></div>
+
+Note:
+⏱ 1:12–1:22. Each bar = one iteration with its f-limit and nodes. Switch between h₁ and h₂ and compare the totals. Then "Hard (31 moves)" — one of the two hardest 8-puzzle instances: with h₂ IDA* needs ≈ 23 thousand nodes (instant); with h₁ ≈ 4.6 million (a couple of seconds). Same algorithm, 200× difference — a vivid argument for better heuristics. Medium (16 moves): 229 vs 2,123 nodes. "Shuffle 20" generates new solvable instances. At the end the stepper plays back the optimal solution.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="2">
+<p class="q">In IDA*, the bound for the next iteration is…</p>
+<ol><li>bound + 1</li><li>the smallest f-value that exceeded the current bound</li><li>twice the current bound</li><li>h(start)</li></ol>
+<p class="explain">That guarantees no solution with a smaller cost was skipped.</p>
+</div>
+
+--
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="3">
+<p class="q">You need the optimal solution of a 15-puzzle on a machine with little RAM. Choose:</p>
+<ol><li>BFS</li><li>A* with h₂</li><li>IDA* with h₂</li><li>Greedy best-first</li></ol>
+<p class="explain">A* runs out of memory (10¹³ states); IDA* uses O(d) memory and is optimal with an admissible h.</p>
+</div>
+
+Note:
+⏱ 1:22–1:27.
+
+---
+
+<!-- .slide: class="activity" -->
+## Your turn
+
+8-puzzle state:
+
+<div class="cols">
+<div>
+
+<pre style="width:9em;font-size:0.9em"><code>1 2 3
+4 _ 6
+7 5 8</code></pre>
+
+</div>
+<div>
+
+1. Compute h₁ and h₂ (goal: 1 2 3 / 4 5 6 / 7 8 _).
+2. What is the first IDA* bound with h₂?
+3. Find the optimal solution. Does its length equal h₂?
+
+</div>
+</div>
+
+<div class="timer" data-seconds="300"></div>
+
+<details><summary>Answers</summary>
+h₁ = 2 (tiles 5 and 8). h₂ = 1 + 1 = 2. First bound = 2. Optimal: move 5 up, 8 left → 2 moves = h₂ (the heuristic is exact here). Check with the "Easy" preset.
+</details>
+
+Note:
+⏱ 1:27–1:33.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+## Exit ticket
+
+<div class="quiz" data-answer="1">
+<p class="q">A* with an admissible heuristic is guaranteed to…</p>
+<ol><li>find an optimal solution (tree search)</li><li>use polynomial memory</li><li>expand fewer nodes than greedy best-first</li><li>run in polynomial time</li></ol>
+<p class="explain">Optimality yes; memory and time can still be exponential.</p>
+</div>
+
+Note:
+⏱ 1:33–1:40. Reading: R&N 3.5–3.6. Amit Patel's "Introduction to A*" (Red Blob Games) is an excellent interactive companion.
+
+---
+
+## Takeaways
+
+- **A***: expand the node with smallest **f = g + h**. h = 0 → Dijkstra; ignore g → greedy.
+- **Admissible** (tree) / **consistent** (graph) h ⇒ **optimal**.
+- Better heuristics (dominating, from **relaxed problems**) ⇒ dramatically fewer nodes.
+- **IDA***: A*'s optimality with **O(d)** memory, by deepening on f.
+
+<p class="muted small">Next: when the state space is too large even for A* — local search and metaheuristics.</p>
+</textarea>
+</section>
+</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/markdown/markdown.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/math/math.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/zoom/zoom.js"></script>
+<script src="../assets/js/widgets.js"></script>
+<script src="../assets/js/widgets-search.js"></script>
+<script src="../assets/js/course.js"></script>
+<script>Course.init();</script>
+</body>
+</html>

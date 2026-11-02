@@ -7,6 +7,7 @@
      .  /  ,   step the animation on the current slide forward / back
      1-4       answer the quiz on the current slide (A-D)
      D         toggle dark mode
+     H         back to the list of sessions (index.html)
    ========================================================= */
 (function () {
   "use strict";
@@ -150,6 +151,16 @@
     });
   }
 
+  // "← All sessions" link (top-left) back to the course index; also key H
+  const HOME = "../index.html";
+  function addHomeLink() {
+    if (document.querySelector(".home-link") || /print-pdf/.test(location.search)) return;
+    const a = document.createElement("a");
+    a.className = "home-link"; a.href = HOME; a.title = "Back to all sessions (H)";
+    a.innerHTML = '<span aria-hidden="true">←</span> All sessions';
+    document.body.appendChild(a);
+  }
+
   function currentSlide() { return window.Reveal && Reveal.getCurrentSlide(); }
 
   function stepCurrent(dir) {
@@ -192,10 +203,12 @@
           190: () => stepCurrent(1),   // .
           188: () => stepCurrent(-1),  // ,
           68: () => setDark(!document.documentElement.classList.contains("dark")), // D
+          72: () => { location.href = HOME; }, // H → back to the index
           49: () => answerCurrent(0), 50: () => answerCurrent(1), 51: () => answerCurrent(2), 52: () => answerCurrent(3)
         },
         plugins
       }, extra || {});
+      addHomeLink();
       return Reveal.initialize(cfg).then(() => {
         fixListFragments(document.querySelector(".reveal .slides"));
         mountAll(document.querySelector(".reveal .slides"));

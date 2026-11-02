@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Convex Hulls, Polytopes and Duality · TC2038</title>
+<meta name="description" content="TC2038 Analysis and Design of Advanced Algorithms — Convex Hulls, Polytopes and Duality">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<link rel="stylesheet" href="../assets/css/course.css">
+</head>
+<body>
+<div class="reveal">
+<div class="slides">
+<!--
+  SLIDES ARE WRITTEN IN MARKDOWN BELOW
+  ---   new horizontal slide        --    new vertical slide (press ↓)
+  Note: everything after this line is a speaker note (press S)
+  Keep HTML blocks (quizzes, widgets) flush-left and without blank lines inside.
+-->
+<section data-markdown data-separator="^---$" data-separator-vertical="^--$" data-separator-notes="^Note:">
+<textarea data-template>
+<!-- .slide: class="title" -->
+<span class="kicker">TC2038 · Unit 4 · Session 4.3</span>
+
+# Convex hulls, polytopes & duality
+
+### From rubber bands to hyperplane arrangements
+
+<p class="byline">Dr. Gildardo Sánchez Ante · Tecnológico de Monterrey<br><span class="tiny">de Berg et al., ch. 1, 8 and 11 · O'Rourke, ch. 3–4</span></p>
+
+Note:
+⏱ 0:00–0:02. Covers syllabus 4.5 (convex hulls, polytopes) and 4.4 (hyperplane arrangements, via duality). de Berg opens the whole book with the convex hull — it is the "hello world" of computational geometry.
+
+---
+
+<!-- .slide: class="activity" -->
+## Warm-up: the rubber band
+
+Hammer nails into a board at the points. Stretch a rubber band around all of them and let it go.
+
+<div class="w" data-widget="hull" data-algo="andrew" data-n="12" data-h="250"></div>
+
+Note:
+⏱ 0:02–0:07. de Berg ch. 1 uses exactly this metaphor. Ask before revealing.
+
+
+--
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz grid2" data-answer="3">
+<p class="q">Which points touch the band?</p>
+<ol><li>All of them</li><li>The ones farthest from the center</li><li>Those that are corners of the smallest convex polygon containing all points</li><li>The leftmost and rightmost only</li></ol>
+<p class="explain">The band takes the shape of the <b>convex hull</b>. Press "⇥" on the widget to see it.</p>
+</div>
+
+---
+
+## Today
+
+<ul class="agenda">
+<li><span class="t">0:07</span> Convexity & convex hulls</li>
+<li><span class="t">0:15</span> A slow but correct algorithm</li>
+<li><span class="t">0:20</span> <b>Pulse check 1</b></li>
+<li><span class="t">0:25</span> The sweep algorithm: upper + lower hull</li>
+<li><span class="t">0:40</span> Gift wrapping · lower bound</li>
+<li><span class="t">0:52</span> <b>Pulse check 2</b></li>
+<li><span class="t">0:57</span> Polytopes: hulls in 3-D</li>
+<li><span class="t">1:07</span> Duality & line arrangements</li>
+<li><span class="t">1:25</span> <b>Pulse check 3</b></li>
+<li><span class="t">1:33</span> <b>Exit ticket</b></li>
+</ul>
+
+---
+
+## Convexity
+
+<div class="cols">
+<div>
+
+- A set S is **convex** if for any p, q ∈ S the whole segment pq ⊆ S.
+- A **convex combination** of x₁…x<sub>k</sub>: α₁x₁ + … + α<sub>k</sub>x<sub>k</sub> with αᵢ ≥ 0 and Σαᵢ = 1.
+- **CH(P)** = smallest convex set containing P = intersection of all convex sets containing P = all convex combinations of P.
+
+</div>
+<div class="card">
+<h4>For a finite set P</h4>
+<p>CH(P) is a convex polygon whose vertices are points of P. Output: its vertices <b>in clockwise order</b>.</p>
+</div>
+</div>
+
+Note:
+⏱ 0:07–0:12. Applications: collision detection (hull as a bounding volume), shortest path around an obstacle (it follows the hull), farthest pair (diameter is between two hull vertices), statistics (convex hull peeling, outlier detection), robotics.
+
+---
+
+## A slow algorithm (de Berg)
+
+An ordered pair (p, q) is a **hull edge** iff all other points lie **to the right** of the directed line pq.
+
+```text [1|2-4|5]
+SlowConvexHull(P):
+    for every ordered pair (p, q), p ≠ q:
+        valid ← true
+        for every r ≠ p, q:  if r is LEFT of pq: valid ← false
+        if valid: add edge pq
+    sort the edges into a polygon
+```
+
+<div class="predict" data-answer="3" data-tol="0">
+<p class="q">The running time is O(n<sup>?</sup>). Type the exponent.</p>
+<p class="explain">n(n−1) pairs × (n−2) tests = <b>O(n³)</b>. Correct but slow — and fragile with collinear points (degeneracy!) and floating point.</p>
+</div>
+
+Note:
+⏱ 0:12–0:20. Orientation test from session 4.1 again. Degeneracy: if r is ON pq we must decide by whether r lies on the segment.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="2">
+<p class="q">Which statement about CH(P) of a finite point set is true?</p>
+<ol><li>Every point of P is a vertex of CH(P)</li><li>Every vertex of CH(P) is a point of P</li><li>CH(P) can have more vertices than P has points</li><li>CH(P) is always a triangle</li></ol>
+<p class="explain">The hull vertices are a subset of P (the "extreme points").</p>
+</div>
+
+Note:
+⏱ 0:20–0:25.
+
+
+--
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="4">
+<p class="q">The leftmost point of P (smallest x, unique)…</p>
+<ol><li>may be inside the hull</li><li>is never a hull vertex</li><li>is a hull vertex only if it's also the lowest</li><li>is always a hull vertex</li></ol>
+<p class="explain">No convex combination of other points can have a smaller x. Every algorithm today starts from an extreme point like this.</p>
+</div>
+
+---
+
+## The sweep: upper hull, then lower hull
+
+1. **Sort** points by x.
+2. Upper hull: go left → right, appending points. While the **last three do not make a right turn**, delete the middle one. <!-- .element: class="fragment" -->
+3. Lower hull: same, right → left. <!-- .element: class="fragment" -->
+4. Concatenate. <!-- .element: class="fragment" -->
+
+<p class="fragment small muted">de Berg's ConvexHull — also known as Andrew's monotone chain (1979), a variant of Graham's scan (1972).</p>
+
+Note:
+⏱ 0:25–0:28.
+
+---
+
+## Watch it (click to add points)
+
+<div class="w" data-widget="hull" data-algo="andrew" data-n="14" data-h="300"></div>
+
+Note:
+⏱ 0:28–0:36. Step slowly through the first few deletions: red triangle = left turn → the middle point (red ring) is deleted, possibly several times in a row ("backtracking" of the chain). Then play. Click "Clear" and build a degenerate case: several points on a vertical line, or collinear points on the hull.
+
+---
+
+## Why O(n log n)?
+
+```cpp [1-2|4-9|10-11]
+// points sorted by x (then y); returns hull in counter-clockwise order
+vector<Pt> hull(vector<Pt> P) {
+    int n = P.size(), k = 0;  vector<Pt> H(2 * n);
+    for (int i = 0; i < n; i++) {                       // lower hull
+        while (k >= 2 && orient(H[k-2], H[k-1], P[i]) <= 0) k--;
+        H[k++] = P[i];
+    }
+    for (int i = n - 2, t = k + 1; i >= 0; i--) {       // upper hull
+        while (k >= t && orient(H[k-2], H[k-1], P[i]) <= 0) k--;
+        H[k++] = P[i];
+    }
+    H.resize(k - 1);  return H;
+}
+```
+
+<p class="small">Sorting O(n log n). Each point is pushed once and popped at most once → the loops are <b>O(n)</b> in total (amortized).</p>
+
+Note:
+⏱ 0:36–0:40. This version builds the lower hull first and returns counter-clockwise order; `<= 0` discards collinear points. de Berg Theorem 1.1.
+
+---
+
+## Gift wrapping (Jarvis march, 1973)
+
+<div class="w" data-widget="hull" data-algo="jarvis" data-n="14" data-h="290"></div>
+
+Note:
+⏱ 0:40–0:47. From the current hull vertex, find the point such that all others are to its left: one full scan (n tests) per hull vertex → O(n·h). Output-sensitive like last session's sweep: excellent when h is small (h = O(log n) beats n log n), terrible when all points are on the hull (O(n²)).
+
+---
+
+## Can we beat n log n?
+
+<div class="cols">
+<div>
+
+**Lower bound by reduction from sorting:** to sort x₁,…,xₙ, map each xᵢ to the point (xᵢ, xᵢ²) on a parabola.
+
+<p class="fragment">All points are on the hull, and walking the hull visits them in <b>sorted order</b>.</p>
+<p class="fragment">So a hull algorithm faster than n log n would sort faster than n log n → <b>Ω(n log n)</b>.</p>
+
+</div>
+<div class="card fragment">
+<h4>Output-sensitive optimum</h4>
+<p>Kirkpatrick–Seidel (1986, "marriage before conquest") and Chan (1996): <b>O(n log h)</b>.</p>
+</div>
+</div>
+
+Note:
+⏱ 0:47–0:52. Remind the reduction idea from Unit 1: "if I could solve B fast, I could solve A fast".
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="3">
+<p class="q">10⁶ points, only 8 of them on the hull. Which is fastest?</p>
+<ol><li>Slow hull: O(n³)</li><li>Sweep: O(n log n)</li><li>Gift wrapping: O(nh)</li><li>All the same</li></ol>
+<p class="explain">n·h = 8·10⁶ vs n log n ≈ 2·10⁷. With h = n (points on a circle) gift wrapping degrades to n².</p>
+</div>
+
+Note:
+⏱ 0:52–0:57.
+
+
+--
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="1">
+<p class="q">In the sweep, the last three points make a <b>left turn</b> while building the upper hull. What happens?</p>
+<ol><li>The middle point is deleted, and the test repeats</li><li>The last point is deleted</li><li>The algorithm restarts</li><li>Nothing: left turns are allowed</li></ol>
+<p class="explain">The upper hull must turn right at every vertex when walked left to right.</p>
+</div>
+
+---
+
+<!-- .slide: class="divider" -->
+## Polytopes: hulls in 3-D
+
+The convex hull of points in ℝ³ is a **convex polytope**: vertices, edges and polygonal **facets**.
+
+<div class="cols">
+<div class="card"><h4>Euler's formula</h4><p>V − E + F = 2</p><p>de Berg Thm 11.1: n vertices → at most <b>3n − 6 edges</b> and <b>2n − 4 facets</b>. Linear size!</p></div>
+<div class="card"><h4>Algorithms</h4><p>Gift wrapping in 3-D: O(nF). Randomized incremental: <b>O(n log n)</b> expected (de Berg Thm 11.7). Divide & conquer (Preparata–Hong): O(n log n).</p></div>
+</div>
+
+Note:
+⏱ 0:57–1:03. In d dimensions the hull can have Θ(n^⌊d/2⌋) facets (upper bound theorem) — the curse of dimensionality. Applications: 3-D collision detection, mesh generation; and next sessions: the Delaunay triangulation is the projection of a 3-D lower hull ("lifting map").
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="predict" data-answer="6" data-tol="0">
+<p class="q">A cube: V = 8, E = 12. Use Euler's formula: how many faces F?</p>
+<p class="explain">8 − 12 + F = 2 → <b>F = 6</b>. And a triangulated polytope with 8 vertices would have 2·8 − 4 = 12 triangular facets.</p>
+</div>
+
+Note:
+⏱ 1:03–1:07. Then ask: and a triangulated polytope with 8 vertices? (2n − 4 = 12 facets, 3n − 6 = 18 edges.)
+
+---
+
+<!-- .slide: class="divider" -->
+## Duality: points ↔ lines
+
+$$p = (p_x, p_y) \quad\mapsto\quad p^\ast : y = p_x\ x - p_y \qquad \ell : y = m x + b \quad\mapsto\quad \ell^\ast = (m, -b)$$
+
+- **Incidence preserving**: p ∈ ℓ ⇔ ℓ* ∈ p*.
+- **Order preserving**: p above ℓ ⇔ ℓ* above p*.
+
+Note:
+⏱ 1:07–1:10. de Berg ch. 8.2. Vertical lines have no dual (degeneracy, as usual: rotate slightly).
+
+---
+
+## Play with duality
+
+<div class="w" data-widget="duality"></div>
+
+Note:
+⏱ 1:10–1:17. Drag p1 and p2: the dashed line through them in the primal becomes the point ℓ* where p1* and p2* cross. Press "Make 3 collinear": three lines through ONE point (orange). Add points: the dual lines form an **arrangement**; the counts match de Berg Thm 8.4 when the arrangement is simple.
+
+---
+
+## Hyperplane arrangements
+
+The **arrangement** A(L) of n lines: the subdivision of the plane into vertices, edges and faces.
+
+| | Simple arrangement of n lines |
+|---|---|
+| vertices | n(n − 1)/2 |
+| edges | n² |
+| faces | n²/2 + n/2 + 1 |
+
+- Can be built in **O(n²)** time (incremental, zone theorem). In ℝᵈ: n hyperplanes → Θ(nᵈ) complexity.
+- **Upper hull** of P ↔ **lower envelope** of the dual lines P*.
+- **Any 3 collinear points?** ⇔ does A(P*) have a vertex where ≥ 3 lines meet? → O(n²) instead of O(n³).
+
+Note:
+⏱ 1:17–1:25. de Berg Thm 8.4 and Thm 8.6 (arrangement in O(n²)). Other uses: discrepancy (ray tracing sample quality), half-plane range counting, levels for k-th smallest problems. The 3SUM conjecture says you can't do much better than n² for collinearity.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="predict" data-answer="56" data-tol="0">
+<p class="q">A simple arrangement of 10 lines has how many faces?</p>
+<p class="explain">n²/2 + n/2 + 1 = 50 + 5 + 1 = <b>56</b>. Check: V = 45, E = 100, V − E + F = 1 (planar, with unbounded edges) → F = 56.</p>
+</div>
+
+Note:
+⏱ 1:25–1:33.
+
+
+--
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="2">
+<p class="q">Under duality, three collinear points become…</p>
+<ol><li>three parallel lines</li><li>three lines through a common point</li><li>a triangle</li><li>three vertical lines</li></ol>
+<p class="explain">The common line ℓ through the points maps to the common point ℓ* on all three dual lines.</p>
+</div>
+
+---
+
+<!-- .slide: class="checkpoint" -->
+## Exit ticket
+
+<div class="quiz" data-answer="1">
+<p class="q">Why is Ω(n log n) a lower bound for planar convex hulls?</p>
+<ol><li>Sorting reduces to it: lift numbers to a parabola</li><li>Because of the orientation test</li><li>Because of degenerate cases</li><li>Gift wrapping needs it</li></ol>
+<p class="explain">A faster hull algorithm would give a faster comparison sort.</p>
+</div>
+
+Note:
+⏱ 1:33–1:40. Muddiest point. Reading: de Berg 1.1, 8.2–8.3, 11.1; O'Rourke 3.5 (Graham scan) and 4.
+
+---
+
+## Takeaways
+
+- **CH(P)**: smallest convex set ⊇ P; vertices are extreme points of P.
+- Slow O(n³) → **sweep (upper + lower hull) O(n log n)** → gift wrapping **O(nh)**; lower bound Ω(n log n).
+- **Polytopes** in 3-D have linear size (≤ 3n − 6 edges, ≤ 2n − 4 facets); O(n log n) algorithms exist.
+- **Duality** turns points into lines; questions about points become questions about **arrangements** (n² complexity).
+
+<p class="muted small">Next: Voronoi diagrams — the geometry of "who is closest?".</p>
+</textarea>
+</section>
+</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/markdown/markdown.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/math/math.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/zoom/zoom.js"></script>
+<script src="../assets/js/widgets.js"></script>
+<script src="../assets/js/widgets-geometry.js"></script>
+<script src="../assets/js/course.js"></script>
+<script>Course.init();</script>
+</body>
+</html>

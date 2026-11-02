@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Heavy Pruning and Meet in the Middle · TC2038</title>
+<meta name="description" content="TC2038 Analysis and Design of Advanced Algorithms — Heavy Pruning and Meet in the Middle">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<link rel="stylesheet" href="../assets/css/course.css">
+</head>
+<body>
+<div class="reveal">
+<div class="slides">
+<!--
+  SLIDES ARE WRITTEN IN MARKDOWN BELOW
+  ---   new horizontal slide        --    new vertical slide (press ↓)
+  Note: everything after this line is a speaker note (press S)
+  Keep HTML blocks (quizzes, widgets) flush-left and without blank lines inside.
+-->
+<section data-markdown data-separator="^---$" data-separator-vertical="^--$" data-separator-notes="^Note:">
+<textarea data-template>
+<!-- .slide: class="title" -->
+<span class="kicker">TC2038 · Unit 5 · Session 5.2</span>
+
+# Heavy pruning & meet in the middle
+
+### Exponential, but smart: cut the tree, or split it in half
+
+<p class="byline">Dr. Gildardo Sánchez Ante · Tecnológico de Monterrey<br><span class="tiny">Halim & Halim, <i>Competitive Programming 3</i>, §3.2 and §8.2 · Skiena, <i>Algorithm Design Manual</i>, ch. 9</span></p>
+
+Note:
+⏱ 0:00–0:02. Syllabus 5.3 and 5.4. Theme: we can't beat exponential in the worst case, but the constant in the base and the exponent matter enormously. 2⁴⁰ vs 2²⁰ is the difference between days and milliseconds.
+
+---
+
+<!-- .slide: class="activity" -->
+## Warm-up: pick numbers
+
+From **{3, 34, 4, 12, 5, 2, 27, 9}** choose some numbers that add up to exactly **40**.
+
+<div class="timer" data-seconds="90"></div>
+
+<details><summary>How did you search?</summary>
+Most people (a) start with big numbers, (b) stop a branch as soon as the sum exceeds 40, (c) stop when even taking everything left can't reach 40. Those are exactly the three prunings of today. One answer: 34 + 4 + 2.
+</details>
+
+Note:
+⏱ 0:02–0:07. Ask volunteers to narrate their strategy, write the strategies on the board, then map them to the three pruning rules.
+
+---
+
+## Today
+
+<ul class="agenda">
+<li><span class="t">0:07</span> Anatomy of a backtracking search</li>
+<li><span class="t">0:15</span> Pruning rules & the pruning lab</li>
+<li><span class="t">0:35</span> <b>Pulse check 1</b></li>
+<li><span class="t">0:40</span> Ordering, symmetry, propagation (Sudoku)</li>
+<li><span class="t">0:55</span> <b>Pulse check 2</b></li>
+<li><span class="t">1:00</span> Meet in the middle</li>
+<li><span class="t">1:20</span> <b>Pulse check 3</b> · hands-on</li>
+<li><span class="t">1:33</span> <b>Exit ticket</b></li>
+</ul>
+
+---
+
+## Anatomy of a backtracking search
+
+```text [1|2-3|4|5-7]
+Backtrack(partial):
+    if partial is a complete solution:  report it;  return
+    if partial cannot lead to a (better) solution:  return      ← PRUNE
+    for each candidate c (in a GOOD ORDER):                      ← ORDER
+        extend partial with c
+        Backtrack(partial)
+        undo c
+```
+
+<p class="small">The tree has up to bⁿ leaves. Our tools: <b>cut subtrees early</b> (pruning) and <b>visit promising branches first</b> (ordering).</p>
+
+Note:
+⏱ 0:07–0:10. Same skeleton as sessions 1.2 (backtracking) and 1.6 (branch & bound).
+
+---
+
+## Three classic prunings for subset sum
+
+<div class="cols3">
+<div class="card fragment"><h4>Feasibility</h4><p>The partial sum already exceeds T → no extension can fix it (all numbers positive).</p></div>
+<div class="card fragment"><h4>Bound (optimistic)</h4><p>Partial sum + <b>everything left</b> &lt; T → even the best case fails.</p></div>
+<div class="card fragment"><h4>Ordering</h4><p>Try large numbers first: overshoots happen early, near the root, where cuts remove the biggest subtrees.</p></div>
+</div>
+
+<p class="fragment callout">A prune is <b>safe</b> only if it never discards a solution. Optimistic bounds are safe; "it probably won't work" is not.</p>
+
+Note:
+⏱ 0:10–0:15.
+
+---
+
+## Pruning lab
+
+<div class="w" data-widget="pruning" data-n="24"></div>
+
+Note:
+⏱ 0:15–0:30. Start by unchecking everything and pressing Run with n = 20 or 24 (full tree: 33 million nodes for n = 24 — may take a second). Then add one pruning at a time and press Run each time. Typical: no pruning ~3·10⁷ nodes, all prunings ~10³–10⁵. Finally check "stop at first solution". Discuss: same worst case, wildly different practice.
+
+---
+
+## Why pruning near the root matters
+
+<div class="cols">
+<div>
+
+A cut at depth k removes a subtree of size ≈ b<sup>n−k</sup>.
+
+- A cut at depth 3 in a binary tree of depth 30: 2²⁷ ≈ 1.3·10⁸ nodes gone.
+- A cut at depth 28: just 4 nodes.
+
+</div>
+<div class="card">
+<h4>Design rule</h4>
+<p>Make decisions that are most likely to fail <b>first</b> ("fail-first"), and compute bounds that are cheap but tight.</p>
+</div>
+</div>
+
+Note:
+⏱ 0:30–0:35.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="3">
+<p class="q">Subset sum with possibly <b>negative</b> numbers. Which pruning becomes unsafe?</p>
+<ol><li>Stopping at the first solution</li><li>Sorting the numbers</li><li>"Stop if the partial sum exceeds T"</li><li>None</li></ol>
+<p class="explain">A later negative number could bring the sum back down. Every prune relies on a property of the problem: check it!</p>
+</div>
+
+--
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="2">
+<p class="q">A bound for a <b>maximization</b> problem must…</p>
+<ol><li>underestimate the best completion</li><li>never underestimate the best completion</li><li>be exact</li><li>be computed by brute force</li></ol>
+<p class="explain">Optimistic = upper bound for max. If it underestimates, you may prune the branch with the optimum (session 1.6).</p>
+</div>
+
+Note:
+⏱ 0:35–0:40.
+
+---
+
+## More weapons
+
+<div class="cols">
+<div class="card"><h4>Variable ordering — MRV</h4><p>Fill next the cell / variable with the <b>fewest remaining values</b> (most constrained). A dead end shows up immediately.</p></div>
+<div class="card"><h4>Value ordering</h4><p>Try first the value <b>most likely to succeed</b> (least constraining).</p></div>
+<div class="card"><h4>Constraint propagation</h4><p>After each choice, remove now-impossible values from neighbors (forward checking). Empty domain ⇒ backtrack now.</p></div>
+<div class="card"><h4>Symmetry breaking</h4><p>N-queens: put the first queen in the left half only, mirror the solutions → half the work.</p></div>
+</div>
+
+Note:
+⏱ 0:40–0:48. Also: memoize failed states (transposition tables in game search), and iterative deepening when depth is unknown.
+
+---
+
+## Example: Sudoku
+
+<div class="cols">
+<div>
+
+- Naive: try 1–9 in each of ~60 empty cells → up to 9⁶⁰.
+- With **propagation + MRV**, most newspaper Sudokus need **zero or a handful** of guesses.
+- Peter Norvig's solver (≈ 100 lines of Python) solves the "hardest" puzzles in milliseconds with these two ideas.
+
+</div>
+<div class="card">
+<h4>Bitmask touch</h4>
+<p>Keep for each row, column and box a 9-bit mask of used digits. Candidates of a cell: <code>~(row[r] | col[c] | box[b]) &amp; 0x1FF</code> — exactly like N-queens last session.</p>
+</div>
+</div>
+
+Note:
+⏱ 0:48–0:55. Optional live demo: any online Sudoku solver visualizer.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="1">
+<p class="q">In Sudoku, the MRV heuristic chooses next…</p>
+<ol><li>the empty cell with the fewest candidate digits</li><li>the cell with the most candidates</li><li>the top-left empty cell</li><li>a random cell</li></ol>
+<p class="explain">If a cell has 0 candidates we fail immediately; if it has 1, no branching at all.</p>
+</div>
+
+--
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="4">
+<p class="q">Which statement about heavy pruning is true?</p>
+<ol><li>It changes the worst-case complexity to polynomial</li><li>It can discard optimal solutions to save time</li><li>It only works with bitmasks</li><li>It keeps correctness and usually reduces the explored tree by orders of magnitude</li></ol>
+<p class="explain">Worst case is still exponential; typical cases improve dramatically.</p>
+</div>
+
+Note:
+⏱ 0:55–1:00.
+
+---
+
+<!-- .slide: class="divider" -->
+## Meet in the middle
+
+Subset sum with **n = 40** numbers: 2⁴⁰ ≈ 1.1·10¹² subsets.
+
+<p class="fragment">Split the numbers into two halves of 20: each half has only 2²⁰ ≈ 10⁶ subset sums.</p>
+<p class="fragment">A solution = (a sum from the left) + (a sum from the right) = T.</p>
+
+Note:
+⏱ 1:00–1:03. Horowitz & Sahni (1974). Same idea as bidirectional search from last session: two searches of depth d/2 instead of one of depth d.
+
+---
+
+## The algorithm
+
+1. Enumerate the 2<sup>n/2</sup> subset sums of each half.
+2. Sort the right half's sums.
+3. For each left sum a, look for T − a in the right list (binary search) — or walk two pointers.
+
+$$O\left(2^{n/2} \cdot n\right) \text{ time}, \quad O\left(2^{n/2}\right) \text{ memory}$$
+
+<div class="predict" data-answer="1048576" data-tol="0">
+<p class="q">n = 40: how many subset sums are stored per half?</p>
+<p class="explain">2²⁰ = <b>1,048,576</b>. Total work ≈ 2·10⁶·20 ≈ 4·10⁷ vs 10¹² — from hours to milliseconds, paid with memory.</p>
+</div>
+
+Note:
+⏱ 1:03–1:08.
+
+---
+
+## Watch the two pointers
+
+<div class="w" data-widget="mitm" data-input="3,34,4,12,5,2,27,9" data-target="40"></div>
+
+Note:
+⏱ 1:08–1:15. Left list ascending, right list scanned from the largest. If the sum is too small, move left pointer right; too big, move right pointer left. Each step discards one candidate → linear scan after sorting.
+
+---
+
+## Where else?
+
+<div class="cols3">
+<div class="card"><h4>4-SUM</h4><p>a + b + c + d = 0 from four lists of n: pair up (a + b) and (c + d) → O(n² log n) instead of O(n⁴).</p></div>
+<div class="card"><h4>Bidirectional search</h4><p>Search from start and goal; stop when frontiers meet: b<sup>d/2</sup> + b<sup>d/2</sup> ≪ b<sup>d</sup>.</p></div>
+<div class="card"><h4>Cryptanalysis</h4><p>Double encryption (2DES) gives only ~2<sup>57</sup> security, not 2<sup>112</sup>, because of a meet-in-the-middle attack.</p></div>
+</div>
+
+Note:
+⏱ 1:15–1:20. Rubik's cube: God's number (20) was found with massive bidirectional-style computation.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="2">
+<p class="q">Meet in the middle trades…</p>
+<ol><li>correctness for speed</li><li>memory for time</li><li>time for memory</li><li>nothing: it's strictly better</li></ol>
+<p class="explain">O(2^(n/2)) memory to store the half-sums is the price of the square-root speed-up.</p>
+</div>
+
+--
+
+<!-- .slide: class="activity" -->
+## Your turn
+
+Numbers **{5, 9, 1, 7 | 2, 6, 3, 8}**, target **T = 20**.
+
+1. List the 16 subset sums of the left half and of the right half; sort them.
+2. Run the two-pointer scan. Which subset do you find?
+3. How many comparisons did you need vs. 2⁸ = 256 subsets?
+
+<div class="timer" data-seconds="420"></div>
+
+<details><summary>One answer</summary>
+Left sums: 0,1,5,6,7,8,9,10,12,13,14,15,16,17,21,22. Right sums: 0,2,3,5,6,8,8,9,10,11,11,13,14,16,17,19. The scan finds 1 + 19 = 20 after only 2 comparisons → {1} ∪ {2, 6, 3, 8}. (Another solution: 9 + 11 → {9} ∪ {3, 8}.)
+</details>
+
+Note:
+⏱ 1:20–1:33.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+## Exit ticket
+
+<div class="quiz" data-answer="3">
+<p class="q">n = 50 items, find a subset with sum T. The most realistic exact approach is…</p>
+<ol><li>enumerate all 2⁵⁰ subsets</li><li>greedy</li><li>meet in the middle with 2²⁵ ≈ 3.4·10⁷ sums per half (plus pruning)</li><li>BFS over sums</li></ol>
+<p class="explain">2⁵⁰ ≈ 10¹⁵ is out of reach; 2·3.4·10⁷ is fine. (If T is small, DP over sums is another option — Unit 1!)</p>
+</div>
+
+Note:
+⏱ 1:33–1:40. Reading: CP3 §3.2.2–3.2.3 (pruning tips) and §8.2.4 (meet in the middle).
+
+---
+
+## Takeaways
+
+- Pruning: **feasibility**, **optimistic bounds**, **ordering** (fail-first, MRV), **propagation**, **symmetry** — always check it's **safe**.
+- Prune **near the root**: that's where subtrees are huge.
+- **Meet in the middle**: 2ⁿ → 2·2^(n/2), paid with 2^(n/2) memory.
+- Same idea behind bidirectional search and 4-SUM.
+
+<p class="muted small">Next: informed search — A* and IDA*.</p>
+</textarea>
+</section>
+</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/markdown/markdown.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/math/math.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/zoom/zoom.js"></script>
+<script src="../assets/js/widgets.js"></script>
+<script src="../assets/js/widgets-search.js"></script>
+<script src="../assets/js/course.js"></script>
+<script>Course.init();</script>
+</body>
+</html>

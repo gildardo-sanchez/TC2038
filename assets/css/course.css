@@ -65,6 +65,8 @@ html, body { background: var(--bg); }
 .reveal p { margin: 0.5em 0; }
 .reveal a { color: var(--accent); text-decoration: none; border-bottom: 1px solid var(--accent-soft); }
 .reveal strong { color: var(--ink); font-weight: 700; }
+.reveal sup { vertical-align: super; font-size: 0.7em; }
+.reveal sub { vertical-align: sub; font-size: 0.7em; }
 .reveal em { color: var(--accent); font-style: normal; font-weight: 600; }
 .reveal ul, .reveal ol { display: block; margin-left: 1.1em; }
 .reveal li { margin: 0.25em 0; }
@@ -269,6 +271,15 @@ html.dark .reveal .board .sq.d { background: #26262b; }
 
 @keyframes pop { from { transform: translateY(6px); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes pulse { 50% { opacity: 0.4; } }
+
+.home-link {
+  position: fixed; top: 12px; left: 14px; z-index: 40;
+  font-family: var(--font); font-size: 14px; font-weight: 600; text-decoration: none;
+  color: var(--muted); background: var(--surface); border: 1px solid var(--line);
+  border-radius: 999px; padding: 5px 12px; opacity: 0.55; transition: opacity .15s, color .15s, border-color .15s;
+}
+.home-link:hover, .home-link:focus { opacity: 1; color: var(--accent); border-color: var(--accent); }
+@media print { .home-link { display: none; } }
 
 /* ---------- Course index page ---------- */
 body.index-page { font-family: var(--font); color: var(--ink); background: var(--bg); margin: 0; }

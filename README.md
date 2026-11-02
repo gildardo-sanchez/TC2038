@@ -32,19 +32,17 @@ No hay paso de compilación: son HTML estáticos. Reveal.js, KaTeX y highlight.j
 
 ```
 index.html                  ← portada del curso con la lista de sesiones
-decks/                      ← Unidad 1: 02–07 · Unidad 4: 22–26
-  02-algorithms.html
-  03-design-techniques.html
-  04-divide-and-conquer.html
-  04a-efficiency.html
-  05-greedy.html
-  06-dynamic-programming.html
-  07-branch-and-bound.html
+decks/                      ← una sesión por archivo, numeradas por unidad
+  1-1-algorithms.html … 1-6-branch-and-bound.html        (Unidad 1)
+  4-1-geometry-intro.html … 4-5-delaunay-randomized.html (Unidad 4)
+  5-1-search-bitmasks.html … 5-4-local-search.html       (Unidad 5)
+  02-….html, 22-….html, …   ← redirecciones de los nombres anteriores (no borrar: mantienen vivos los enlaces viejos)
 assets/
   css/course.css            ← tema minimalista (claro/oscuro) y estilos de widgets
   js/course.js              ← arranque de Reveal + quizzes, "predict", temporizador, atajos
   js/widgets.js             ← animaciones interactivas (ver catálogo abajo)
   js/widgets-geometry.js    ← animaciones de geometría computacional (Unidad 4)
+  js/widgets-search.js      ← animaciones de búsqueda avanzada (Unidad 5)
 ```
 
 ## Teclas durante la clase
@@ -56,6 +54,7 @@ assets/
 | **.** / **,** | Avanzar / retroceder un paso la animación de la diapositiva actual |
 | **1–4** | Responder el quiz en pantalla (A–D) |
 | **D** | Modo oscuro |
+| **H** | Volver a la portada (también el botón “← All sessions” arriba a la izquierda) |
 | **F** · **Esc** · **B** | Pantalla completa · vista general · pantalla en negro |
 
 PDF: abre la presentación con `?print-pdf` al final de la URL e imprime desde Chrome.
@@ -149,7 +148,7 @@ Para crear un widget nuevo: `Widgets.register("nombre", (host, data) => { ... })
 
 ### Widgets de geometría computacional (Unidad 4)
 
-Requieren cargar también `assets/js/widgets-geometry.js` (ya incluido en las sesiones 22–26).
+Requieren cargar también `assets/js/widgets-geometry.js` (ya incluido en las sesiones 4.1–4.5).
 En casi todos se puede **hacer clic para agregar puntos** y **arrastrarlos**.
 
 | `data-widget` | Qué muestra | Atributos |
@@ -167,3 +166,26 @@ En casi todos se puede **hacer clic para agregar puntos** y **arrastrarlos**.
 | `ric` | Construcción incremental aleatoria de Delaunay | `data-n`, `data-seed` |
 | `montecarlo` | Estimación de π o de ∫₀¹ x³ dx con dardos | `data-mode="pi\|int"` |
 | `karger` | Corte mínimo de Karger (contracción aleatoria) | — |
+
+### Widgets de búsqueda avanzada (Unidad 5)
+
+Requieren cargar también `assets/js/widgets-search.js` (ya incluido en las sesiones 5.1–5.4).
+
+| `data-widget` | Qué muestra | Atributos |
+|---|---|---|
+| `treesearch` | BFS, DFS, búsqueda limitada e iterative deepening sobre el árbol 1–15, con la FRINGE | `data-algo="bfs\|dfs\|dls\|ids"`, `data-goal` |
+| `gridsearch` | Laberinto editable (muros, lodo): BFS, DFS, Dijkstra, greedy, A*, A* ponderado | `data-algo`, `data-preset="wall\|mud\|maze"` |
+| `bits` | Operaciones de bits con bits clicables | — |
+| `nqbits` | N reinas con máscaras (cols, diagonales) y conteo de soluciones | `data-n` |
+| `pruning` | Laboratorio de poda en suma de subconjuntos (nodos explorados) | `data-n` |
+| `mitm` | Meet in the middle con dos apuntadores | `data-input`, `data-target` |
+| `puzzle8` | IDA* en el 8-puzzle con h₁ / h₂ | `data-preset="easy\|medium\|hard"` |
+| `landscape` | Hill climbing, reinicios aleatorios y recocido simulado | `data-mode="hill\|restart\|sa"` |
+| `satsp` | Recocido simulado en el TSP (2-opt), en vivo | `data-n` |
+| `ga` | Algoritmo genético para la mochila (W = 15) | — |
+| `aco` | Colonia de hormigas en el TSP con feromona visible | `data-n` |
+
+### Numeración
+
+Las sesiones se numeran **unidad.sesión** (1.1, 1.2 … 4.1 … 5.4), dejando lugar para las unidades 2 y 3.
+Para una sesión nueva usa el mismo patrón de nombre, por ejemplo `decks/2-1-kmp.html`, y agrégala a `index.html`.

@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Local Search and Metaheuristics · TC2038</title>
+<meta name="description" content="TC2038 Analysis and Design of Advanced Algorithms — Local Search and Metaheuristics">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<link rel="stylesheet" href="../assets/css/course.css">
+</head>
+<body>
+<div class="reveal">
+<div class="slides">
+<!--
+  SLIDES ARE WRITTEN IN MARKDOWN BELOW
+  ---   new horizontal slide        --    new vertical slide (press ↓)
+  Note: everything after this line is a speaker note (press S)
+  Keep HTML blocks (quizzes, widgets) flush-left and without blank lines inside.
+-->
+<section data-markdown data-separator="^---$" data-separator-vertical="^--$" data-separator-notes="^Note:">
+<textarea data-template>
+<!-- .slide: class="title" -->
+<span class="kicker">TC2038 · Unit 5 · Session 5.4</span>
+
+# Local search & metaheuristics
+
+### Hill climbing, simulated annealing, genetic algorithms and ant colonies
+
+<p class="byline">Dr. Gildardo Sánchez Ante · Tecnológico de Monterrey<br><span class="tiny">Russell & Norvig §4.1 · Kirkpatrick, Gelatt & Vecchi (1983) · Holland (1975) · Dorigo & Stützle (2004)</span></p>
+
+Note:
+⏱ 0:00–0:02. Syllabus 5.6 (iterative improvement), 5.7 (hill climbing), 5.8 (simulated annealing), plus two population-based methods from your slides (GA, ACO). Change of mindset: we no longer care about the PATH, only about a good final STATE; and we give up guarantees for scalability.
+
+---
+
+<!-- .slide: class="activity" -->
+## Warm-up: find the highest peak… in the fog
+
+You're on a mountain range in thick fog. You can only feel the slope under your feet.
+
+<div class="quiz" data-answer="2">
+<p class="q">Strategy "always step uphill". What can go wrong?</p>
+<ol><li>Nothing, you always reach the highest peak</li><li>You may stop on a small hill (local maximum), a flat plateau, or a ridge</li><li>You'll walk in circles forever</li><li>You'll fall off a cliff</li></ol>
+<p class="explain">That's hill climbing — and its classic failure modes.</p>
+</div>
+
+Note:
+⏱ 0:02–0:05. R&N's image: "climbing Everest in thick fog with amnesia".
+
+---
+
+## Today
+
+<ul class="agenda">
+<li><span class="t">0:05</span> Iterative improvement: state, neighbors, objective</li>
+<li><span class="t">0:12</span> Hill climbing & its traps</li>
+<li><span class="t">0:28</span> <b>Pulse check 1</b></li>
+<li><span class="t">0:33</span> Simulated annealing</li>
+<li><span class="t">0:55</span> <b>Pulse check 2</b></li>
+<li><span class="t">1:00</span> Genetic algorithms</li>
+<li><span class="t">1:15</span> Ant colony optimization</li>
+<li><span class="t">1:27</span> <b>Pulse check 3</b> · choosing a method</li>
+<li><span class="t">1:33</span> <b>Exit ticket</b></li>
+</ul>
+
+---
+
+## Iterative improvement
+
+<div class="cols">
+<div>
+
+- Keep **one complete solution** (not a path).
+- Define **neighbors**: small changes (swap two cities, flip a bit, move one queen).
+- Move to a better neighbor; repeat.
+
+</div>
+<div class="card">
+<h4>Why?</h4>
+<p><b>O(1) memory</b>, works on huge or infinite spaces, gives a reasonable answer anytime. No optimality guarantee.</p>
+<p class="muted">8-queens: 8⁸ ≈ 1.7·10⁷ states; TSP with 100 cities: 99!/2 ≈ 10¹⁵⁵ tours.</p>
+</div>
+</div>
+
+Note:
+⏱ 0:05–0:12. "Iterative enhancement" in the syllabus = iterative improvement / local search. Classic example: 2-opt for TSP (reverse a segment of the tour when that shortens it).
+
+---
+
+## Hill climbing
+
+```text [1-2|3-5|6]
+HillClimbing(problem):
+    current ← initial state
+    loop:
+        neighbor ← best neighbor of current
+        if value(neighbor) ≤ value(current): return current     ← stuck
+        current ← neighbor
+```
+
+Note:
+⏱ 0:12–0:20. Press ↓ for the animation. Press "New start" several times: depending on where it starts, it stops on different local maxima. Then switch to "Random restarts (×6)".
+
+
+--
+
+## Hill climbing in action
+
+<div class="w" data-widget="landscape" data-mode="hill" data-h="300"></div>
+
+---
+
+## The traps & the fixes
+
+<div class="cols">
+<div class="card"><h4>Traps</h4><p><b>Local maxima</b> · <b>plateaus</b> (flat: no direction) · <b>ridges</b> (every single step goes down).</p></div>
+<div class="card"><h4>Fixes</h4><p><b>Sideways moves</b> (limited) · <b>random restarts</b> · <b>stochastic</b> hill climbing (random uphill neighbor) · <b>first-choice</b> (first better neighbor).</p></div>
+</div>
+
+<p class="small">8-queens (R&N): steepest ascent solves only <b>14%</b> of random starts (≈ 4 steps when it succeeds). With up to 100 sideways moves: <b>94%</b>. Random restarts: expected 1/p ≈ 7 restarts → essentially always solved.</p>
+
+Note:
+⏱ 0:20–0:28. Random-restart hill climbing is complete with probability approaching 1 (eventually it starts at a goal).
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="predict" data-answer="5" data-tol="0">
+<p class="q">Each hill-climbing run succeeds with probability p = 0.2. Expected number of runs until the first success?</p>
+<p class="explain">Geometric distribution: 1/p = <b>5</b> runs.</p>
+</div>
+
+--
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="3">
+<p class="q">Hill climbing stops when…</p>
+<ol><li>it reaches the global maximum</li><li>the temperature reaches zero</li><li>no neighbor is better than the current state</li><li>after n iterations</li></ol>
+<p class="explain">"Locally optimal" ≠ "globally optimal".</p>
+</div>
+
+Note:
+⏱ 0:28–0:33.
+
+---
+
+## Simulated annealing (SA)
+
+Metallurgy: heat a metal, cool it slowly → atoms settle into a low-energy crystal.
+
+```text [2|3-6|7]
+SimulatedAnnealing(problem, schedule):
+    current ← initial;  T ← T₀
+    while T > T_min:
+        next ← RANDOM neighbor;  ΔE ← value(next) − value(current)
+        if ΔE > 0: current ← next                        // better: always accept
+        else: current ← next with probability e^(ΔE / T) // worse: sometimes!
+        T ← α · T                                        // cool down (0.9 < α < 1)
+```
+
+Note:
+⏱ 0:33–0:38. Metropolis et al. (1953) for the acceptance rule; Kirkpatrick, Gelatt & Vecchi (1983) for optimization (chip placement). Your GA slides start with this summary of SA.
+
+---
+
+## Annealing on the landscape
+
+<div class="w" data-widget="landscape" data-mode="sa" data-h="230"></div>
+
+Note:
+⏱ 0:38–0:45. Hot: it jumps everywhere, even downhill (orange "worse move accepted"). Cold: behaves like hill climbing. With the defaults (T₀ = 1.5, α = 0.99) it reaches the global maximum here; press "New start" several times: it succeeds only ~40% of the runs on this landscape — SA is a heuristic. Then try T₀ = 0.1 (too cold: stuck like hill climbing) and α = 0.90 (cooling too fast: "quenching").
+
+---
+
+## Acceptance probability
+
+$$P(\text{accept worse move}) = e^{\Delta E / T}, \qquad \Delta E < 0$$
+
+| ΔE | T = 10 | T = 1 | T = 0.1 |
+|---|---|---|---|
+| −1 | 0.90 | 0.37 | 0.00005 |
+| −5 | 0.61 | 0.007 | ≈ 0 |
+
+<p class="small">High T: explore. Low T: exploit. If T decreases slowly enough, SA reaches the global optimum with probability → 1 (in theory — "slowly enough" can be very slow).</p>
+
+Note:
+⏱ 0:45–0:48.
+
+---
+
+## SA on the traveling salesman
+
+<div class="w" data-widget="satsp" data-n="40"></div>
+
+Note:
+⏱ 0:48–0:55. Press Run. Move = reverse a random segment (2-opt). The tour length (blue) fluctuates while hot, then settles; the dashed red curve is the temperature. Then switch to "Hill climbing (T = 0)" and Run: it converges faster but usually to a longer tour (crossing edges may remain). Same cities via the same seed; "New cities" changes them.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="predict" data-answer="0.37" data-tol="0.01">
+<p class="q">ΔE = −2, T = 2. Probability of accepting the worse move? (two decimals)</p>
+<p class="explain">e^(−2/2) = e^(−1) ≈ <b>0.37</b>.</p>
+</div>
+
+--
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="2">
+<p class="q">If you set T₀ = 0, simulated annealing becomes…</p>
+<ol><li>random search</li><li>(stochastic) hill climbing</li><li>A*</li><li>a genetic algorithm</li></ol>
+<p class="explain">No worse move is ever accepted.</p>
+</div>
+
+Note:
+⏱ 0:55–1:00.
+
+---
+
+<!-- .slide: class="divider" -->
+## Beyond one solution: populations
+
+<div class="cols">
+<div class="card"><h4>Genetic algorithms</h4><p>A <b>population</b> of candidate solutions evolves by <b>selection</b>, <b>crossover</b> and <b>mutation</b> (Holland, 1975).</p></div>
+<div class="card"><h4>Ant colony optimization</h4><p>Many simple agents build solutions and share information through <b>pheromone</b> (Dorigo, 1992).</p></div>
+</div>
+
+Note:
+⏱ 1:00–1:02. Both are metaheuristics: general recipes you instantiate for a problem.
+
+---
+
+## Genetic algorithm: the recipe
+
+<div class="cols">
+<div>
+
+1. **Encode** a solution as a chromosome (bit string, permutation…).
+2. **Fitness** function.
+3. **Select** parents (roulette wheel, tournament).
+4. **Crossover** (single point), **mutation** (flip bits with small p).
+5. **Elitism**: copy the best unchanged. Repeat.
+
+</div>
+<div class="card">
+<h4>Knapsack (your example)</h4>
+<p>Chromosome = n bits (item in / out). Fitness = total value, or <b>0 if the weight exceeds W</b>.</p>
+<p>Cost: O(P · G · F) for population P, G generations, fitness cost F.</p>
+</div>
+</div>
+
+Note:
+⏱ 1:02–1:06. From your "Genetic Algorithms" slides (based on arpitbhayani.me's genetic knapsack).
+
+---
+
+## Evolve a knapsack (W = 15)
+
+<div class="w" data-widget="ga"></div>
+
+Note:
+⏱ 1:06–1:15. "Next generation" a few times, then Run. Each row is a chromosome (sorted by fitness). Experiments: mutation 0 → premature convergence (all rows become identical); mutation 0.2 → random search; crossover 0 → only mutation. Optimum shown as the dashed green line (computed by brute force over 2¹² subsets).
+
+---
+
+## Ant colony optimization (ACO)
+
+<div class="cols">
+<div>
+
+- Each ant builds a tour city by city: from i to j with probability ∝ **τ<sub>ij</sub><sup>α</sup> · (1/d<sub>ij</sub>)<sup>β</sup>**.
+- **Evaporation**: τ ← (1 − ρ)·τ.
+- **Deposit**: each ant adds Q/L on the edges of its tour (shorter tours → more pheromone).
+
+</div>
+<div class="w" data-widget="aco" data-n="14" data-h="250"></div>
+</div>
+
+Note:
+⏱ 1:15–1:27. Run: thick orange edges = strong pheromone; it converges to a good tour. Raise evaporation ρ: more exploration, slower convergence; very low ρ: early stagnation. Positive feedback is the key mechanism (your slides: real ants and the double-bridge experiment).
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz grid2" data-answer="3">
+<p class="q">Which statement is true for all four methods today?</p>
+<ol><li>They guarantee the optimum</li><li>They need a heuristic h(n)</li><li>They trade optimality guarantees for scalability, and need tuning</li><li>They use exponential memory</li></ol>
+<p class="explain">Metaheuristics give good solutions fast; parameters (T₀, α, mutation rate, ρ…) matter.</p>
+</div>
+
+--
+
+<!-- .slide: class="checkpoint" -->
+## Which tool?
+
+| Situation | Choose |
+|---|---|
+| Need the optimum, small search space | Backtracking + pruning / B&B |
+| n ≈ 40, subset-type problem | Meet in the middle |
+| Shortest path with a good heuristic | A* (IDA* if memory is tight) |
+| Huge space, a good solution is enough | Hill climbing + restarts, SA |
+| Rugged landscape, solutions combine well | Genetic algorithm |
+| Routing / graph problems, dynamic changes | Ant colony optimization |
+
+Note:
+⏱ 1:27–1:33. Course-wide synthesis. Ask pairs to defend one row with an example.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+## Exit ticket
+
+<div class="quiz" data-answer="4">
+<p class="q">Simulated annealing escapes local maxima because…</p>
+<ol><li>it uses a population</li><li>it restarts randomly</li><li>it uses a heuristic h(n)</li><li>it accepts worse moves with probability e^(ΔE/T), decreasing as T cools</li></ol>
+<p class="explain">Controlled randomness: explore early, exploit late.</p>
+</div>
+
+Note:
+⏱ 1:33–1:40. Muddiest point. Reading: R&N 4.1; your GA and ACO slides; Dorigo, Birattari & Stützle (2006), IEEE Computational Intelligence Magazine.
+
+---
+
+## Takeaways
+
+- **Local search** keeps one state and improves it: O(1) memory, anytime answers, no guarantees.
+- **Hill climbing** gets stuck → sideways moves, **random restarts**.
+- **Simulated annealing**: accept worse moves with **e^(ΔE/T)**; cool slowly.
+- **GA** (selection, crossover, mutation) and **ACO** (pheromone, evaporation): population-based metaheuristics.
+
+<p class="muted small">End of Unit 5.</p>
+</textarea>
+</section>
+</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/markdown/markdown.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/math/math.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/zoom/zoom.js"></script>
+<script src="../assets/js/widgets.js"></script>
+<script src="../assets/js/widgets-search.js"></script>
+<script src="../assets/js/course.js"></script>
+<script>Course.init();</script>
+</body>
+</html>
