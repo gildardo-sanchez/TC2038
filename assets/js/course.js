@@ -141,7 +141,7 @@
   // fragment to the <strong>, not to the list item. Move it to the <li> so the whole
   // bullet appears at once (otherwise only the bold words are hidden).
   function fixListFragments(root) {
-    root.querySelectorAll("li strong.fragment, li em.fragment, li b.fragment, li i.fragment, li a.fragment, li code.fragment").forEach((el) => {
+    root.querySelectorAll(["strong", "em", "b", "i", "a", "code", "sub", "sup", "mark", "kbd", "small", "u", "s", "img"].map((x) => "li " + x + ".fragment").join(", ")).forEach((el) => {
       const li = el.closest("li");
       if (!li || li.classList.contains("fragment")) { el.classList.remove("fragment"); return; }
       li.classList.add("fragment");
