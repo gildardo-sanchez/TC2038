@@ -32,7 +32,7 @@ No hay paso de compilación: son HTML estáticos. Reveal.js, KaTeX y highlight.j
 
 ```
 index.html                  ← portada del curso con la lista de sesiones
-decks/
+decks/                      ← Unidad 1: 02–07 · Unidad 4: 22–26
   02-algorithms.html
   03-design-techniques.html
   04-divide-and-conquer.html
@@ -44,6 +44,7 @@ assets/
   css/course.css            ← tema minimalista (claro/oscuro) y estilos de widgets
   js/course.js              ← arranque de Reveal + quizzes, "predict", temporizador, atajos
   js/widgets.js             ← animaciones interactivas (ver catálogo abajo)
+  js/widgets-geometry.js    ← animaciones de geometría computacional (Unidad 4)
 ```
 
 ## Teclas durante la clase
@@ -145,3 +146,24 @@ Todos se insertan con una línea: `<div class="w" data-widget="NOMBRE" ...></div
 | `knapsack` | Branch & bound best-first para mochila 0/1 | `data-instance="example\|exercise"` |
 
 Para crear un widget nuevo: `Widgets.register("nombre", (host, data) => { ... })` en `widgets.js`; usa `Stepper(render)` para obtener la barra Reset · Prev · Play · Next · End.
+
+### Widgets de geometría computacional (Unidad 4)
+
+Requieren cargar también `assets/js/widgets-geometry.js` (ya incluido en las sesiones 22–26).
+En casi todos se puede **hacer clic para agregar puntos** y **arrastrarlos**.
+
+| `data-widget` | Qué muestra | Atributos |
+|---|---|---|
+| `orient` | Prueba de orientación con puntos arrastrables en una cuadrícula | — |
+| `segtest` | ¿Se cruzan dos segmentos? Las 4 pruebas de orientación | — |
+| `closestpair` | Par más cercano por divide y vencerás (franja 2δ) | `data-n`, `data-seed` |
+| `sweep` | Barrido de Bentley–Ottmann: cola de eventos y estado | `data-n`, `data-seed` |
+| `kdtree` | Construcción de kd-tree y consulta por rango | `data-n`, `data-seed` |
+| `hull` | Envolvente convexa: barrido superior/inferior o Jarvis | `data-algo="andrew\|jarvis"`, `data-n` |
+| `duality` | Dualidad punto–recta y arreglos de rectas | — |
+| `voronoi` | Diagrama de Voronoi interactivo, Delaunay dual, círculos vacíos | `data-n`, `data-delaunay="1"` |
+| `fortune` | Algoritmo de Fortune: línea de playa, eventos de sitio y de círculo | `data-n`, `data-seed` |
+| `flips` | Flips de Lawson hasta obtener Delaunay | `data-n`, `data-seed` |
+| `ric` | Construcción incremental aleatoria de Delaunay | `data-n`, `data-seed` |
+| `montecarlo` | Estimación de π o de ∫₀¹ x³ dx con dardos | `data-mode="pi\|int"` |
+| `karger` | Corte mínimo de Karger (contracción aleatoria) | — |

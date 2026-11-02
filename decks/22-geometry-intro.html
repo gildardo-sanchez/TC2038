@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Computational Geometry: Primitives and Proximity · TC2038</title>
+<meta name="description" content="TC2038 Analysis and Design of Advanced Algorithms — Computational Geometry: Primitives and Proximity">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<link rel="stylesheet" href="../assets/css/course.css">
+</head>
+<body>
+<div class="reveal">
+<div class="slides">
+<!--
+  SLIDES ARE WRITTEN IN MARKDOWN BELOW
+  ---   new horizontal slide        --    new vertical slide (press ↓)
+  Note: everything after this line is a speaker note (press S)
+  Keep HTML blocks (quizzes, widgets) flush-left and without blank lines inside.
+-->
+<section data-markdown data-separator="^---$" data-separator-vertical="^--$" data-separator-notes="^Note:">
+<textarea data-template>
+<!-- .slide: class="title" -->
+<span class="kicker">TC2038 · Unit 4 · Session 22</span>
+
+# Computational geometry
+
+### Geometric primitives and proximity
+
+<p class="byline">Dr. Gildardo Sánchez Ante · Tecnológico de Monterrey<br><span class="tiny">Main text: de Berg, Cheong, van Kreveld & Overmars, <i>Computational Geometry: Algorithms and Applications</i>, 3rd ed.</span></p>
+
+Note:
+⏱ 0:00–0:03. Unit 4 in five sessions: (22) primitives & proximity, (23) segment intersection & range search, (24) convex hulls, polytopes & duality, (25) Voronoi diagrams, (26) Delaunay triangulations & randomized algorithms. Today's promise: by the end they can decide "left or right?" with one formula and find the closest pair of n points in O(n log n).
+
+Presenter keys: S notes · . / , step an animation · 1–4 answer the quiz · D dark mode.
+
+---
+
+<!-- .slide: class="activity" -->
+## Warm-up: the nearest restroom
+
+You are on campus and need the **nearest restroom** — urgently. The dots are restrooms. Move the mouse around.
+
+<div class="w" data-widget="voronoi" data-n="8" data-h="270"></div>
+
+Note:
+⏱ 0:03–0:08. This is scenario 1 of the old slides (de Berg ch. 1). Let students guess before voting. Don't explain Voronoi yet: just plant the picture.
+
+
+--
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz grid2" data-answer="2">
+<p class="q">What shape is the region "closest to this restroom"?</p>
+<ol><li>A circle</li><li>A convex polygon</li><li>Any shape</li><li>A square</li></ol>
+<p class="explain">Each region is the intersection of half-planes → always convex. This is a <b>Voronoi diagram</b> (session 25).</p>
+</div>
+
+---
+
+## Today
+
+<ul class="agenda">
+<li><span class="t">0:08</span> What is computational geometry?</li>
+<li><span class="t">0:18</span> <b>Pulse check 1</b></li>
+<li><span class="t">0:22</span> The orientation test</li>
+<li><span class="t">0:38</span> Segment intersection test</li>
+<li><span class="t">0:48</span> <b>Pulse check 2</b> · degeneracies & robustness</li>
+<li><span class="t">0:58</span> Closest pair: divide & conquer</li>
+<li><span class="t">1:20</span> <b>Pulse check 3</b> · hands-on</li>
+<li><span class="t">1:33</span> <b>Exit ticket</b></li>
+</ul>
+
+---
+
+## What is computational geometry?
+
+> The systematic study of **algorithms and data structures for geometric objects**, with a focus on **exact** algorithms that are **asymptotically fast**. — de Berg et al.
+
+- Born in the **1970s** (Shamos' thesis, 1978) as a generalization of 1-D sorting and searching to many dimensions. <!-- .element: class="fragment" -->
+- Mostly 2-D and 3-D; mostly **flat objects**: points, segments, polygons, planes, polyhedra. <!-- .element: class="fragment" -->
+- Discrete flavor: combinatorics + data structures, not numerical analysis. <!-- .element: class="fragment" -->
+
+Note:
+⏱ 0:08–0:11. The term was perhaps first used by Minsky & Papert in "Perceptrons"; today it means the algorithmic subfield.
+
+---
+
+## Where it shows up
+
+<div class="cols3">
+<div class="card"><h4>Computer graphics & games</h4><p>Hidden surfaces, collision detection, ray shooting, meshes.</p></div>
+<div class="card"><h4>Robotics</h4><p>Motion planning around obstacles, path planning.</p></div>
+<div class="card"><h4>GIS & maps</h4><p>Map overlay, nearest facility, terrain models.</p></div>
+<div class="card"><h4>CAD / CAM</h4><p>Boolean operations on solids, 3-D printing paths.</p></div>
+<div class="card"><h4>Molecular modeling</h4><p>Union of atom balls, protein surfaces, docking.</p></div>
+<div class="card"><h4>Data science</h4><p>Nearest neighbors, clustering, k-d trees, Delaunay meshes for simulations.</p></div>
+</div>
+
+Note:
+⏱ 0:11–0:15. Ask: "Which app on your phone uses geometric algorithms right now?" (Maps, ride sharing, camera face detection…)
+
+---
+
+## How geometric algorithms are designed
+
+<div class="cols3">
+<div class="card fragment"><h4>1 · Ignore degeneracies</h4><p>Assume general position: no 3 collinear points, no vertical segments, no 4 cocircular points. Understand the geometry.</p></div>
+<div class="card fragment"><h4>2 · Handle degeneracies</h4><p>Adjust the algorithm so it stays correct for the special cases.</p></div>
+<div class="card fragment"><h4>3 · Implement</h4><p>Build on a few <b>primitive operations</b> (left/right of a line, inside a circle…) and make them <b>robust</b>.</p></div>
+</div>
+
+Note:
+⏱ 0:15–0:18. Good solutions combine (a) a thorough understanding of geometric properties and (b) proper algorithmic techniques and data structures.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="3">
+<p class="q">A "degenerate case" in computational geometry is…</p>
+<ol><li>an input that makes the algorithm run in worst-case time</li><li>a bug in the floating-point unit</li><li>a special configuration such as three collinear points or two points with the same x</li><li>a problem in more than 3 dimensions</li></ol>
+<p class="explain">Degeneracies are "unlucky coincidences" of the input. Designing first under general position, then fixing them, is the standard method (de Berg ch. 1).</p>
+</div>
+
+Note:
+⏱ 0:18–0:22.
+
+---
+
+<!-- .slide: class="divider" -->
+## The most important primitive
+
+Given a directed line from **p** to **q**: is **r** to the **left**, to the **right**, or **on** the line?
+
+<p class="small muted">Convex hulls, segment intersection, triangulations, point-in-polygon… all of them reduce to this question.</p>
+
+Note:
+⏱ 0:22–0:24.
+
+---
+
+## Orientation = sign of a determinant
+
+$$\operatorname{orient}(p,q,r)=\begin{vmatrix} q_x-p_x & r_x-p_x \\\\ q_y-p_y & r_y-p_y \end{vmatrix} = (q_x-p_x)(r_y-p_y)-(q_y-p_y)(r_x-p_x)$$
+
+<div class="w" data-widget="orient"></div>
+
+Note:
+⏱ 0:24–0:32. Drag the points (they snap to the integer grid). > 0: counter-clockwise (left turn); < 0: clockwise (right turn); = 0: collinear. The absolute value is twice the area of the triangle — a nice "why it works": the cross product of the vectors pq and pr.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="predict" data-answer="-6" data-tol="0">
+<p class="q">p = (1, 1), q = (4, 1), r = (3, −1). Compute orient(p, q, r).</p>
+<p class="explain">(4−1)(−1−1) − (1−1)(3−1) = 3·(−2) − 0 = <b>−6</b> → r is to the <b>right</b> of pq (clockwise). Check it by dragging the points on the previous slide.</p>
+</div>
+
+Note:
+⏱ 0:32–0:36. Give 90 seconds on paper before revealing.
+
+
+--
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="1">
+<p class="q">orient(p, q, r) = 0 means…</p>
+<ol><li>p, q and r are collinear</li><li>r = p</li><li>the triangle is equilateral</li><li>r is at the origin</li></ol>
+<p class="explain">Zero area ⇔ the three points lie on one line.</p>
+</div>
+
+---
+
+## In code
+
+```cpp [1-4|6-9]
+struct Pt { long long x, y; };
+long long orient(Pt p, Pt q, Pt r) {           // exact with integers
+    return (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x);
+}
+
+bool leftTurn(Pt p, Pt q, Pt r)  { return orient(p, q, r) > 0; }
+bool rightTurn(Pt p, Pt q, Pt r) { return orient(p, q, r) < 0; }
+bool collinear(Pt p, Pt q, Pt r) { return orient(p, q, r) == 0; }
+```
+
+<p class="small">No angles, no trigonometry, no division: <b>2 multiplications and 5 subtractions</b>.</p>
+
+Note:
+⏱ 0:36–0:38. With integer coordinates up to 10⁹ the products fit in 64 bits (up to ~4·10¹⁸). Stress: never compute angles with atan2 to decide a turn.
+
+---
+
+## Do two segments intersect?
+
+Segments ab and cd intersect (properly) iff **c and d lie on opposite sides of ab** AND **a and b lie on opposite sides of cd**.
+
+<div class="w" data-widget="segtest"></div>
+
+Note:
+⏱ 0:38–0:44. Drag the endpoints. Show the "same side" case (no intersection although the LINES intersect), and the collinear-touching case (orientation 0 → check the bounding box).
+
+---
+
+## Robustness: when floating point lies
+
+<div class="cols">
+<div>
+
+- orient(p, q, r) with `double` may return the **wrong sign** when the points are almost collinear.
+- Algorithms then make **inconsistent decisions** → crashes, holes in meshes, infinite loops.
+
+</div>
+<div class="card">
+<h4>Remedies</h4>
+<p>· Integer / rational coordinates (exact)</p>
+<p>· Exact predicates with adaptive precision (Shewchuk)</p>
+<p>· Libraries: <b>CGAL</b>, Fade2D, Boost.Geometry</p>
+</div>
+</div>
+
+Note:
+⏱ 0:44–0:48. Classic demo (Kettner et al., "Classroom examples of robustness problems"): orientation of points near (0.5, 0.5) on a fine floating-point grid produces a fractal-looking pattern of wrong signs. In contests: use integers whenever possible.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="4">
+<p class="q">Segments ab and cd: orient(a,b,c) &gt; 0, orient(a,b,d) &gt; 0. What can we conclude?</p>
+<ol><li>They intersect</li><li>They intersect only if they are parallel</li><li>We need the other two tests to decide</li><li>They do not intersect: c and d are on the same side of ab</li></ol>
+<p class="explain">If both endpoints of cd are strictly left of ab, the whole segment cd is left of the line ab → no intersection.</p>
+</div>
+
+Note:
+⏱ 0:48–0:58 (includes robustness discussion).
+
+
+--
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="2">
+<p class="q">Why do geometry libraries avoid computing angles with atan2?</p>
+<ol><li>atan2 does not exist in C++</li><li>It's slower and introduces rounding; the sign of a determinant answers the question exactly</li><li>Angles are always wrong</li><li>Because of degenerate cases only</li></ol>
+<p class="explain">Predicates should be as simple and exact as possible.</p>
+</div>
+
+---
+
+<!-- .slide: class="divider" -->
+## Proximity: the closest pair
+
+Given n points in the plane, find the two that are **closest** to each other.
+
+<p class="small">Air-traffic control, collision warnings, clustering, duplicate detection.</p>
+
+<div class="predict" data-answer="499500" data-tol="0">
+<p class="q">Brute force with n = 1,000 points: how many distances?</p>
+<p class="explain">n(n−1)/2 = 499,500 → Θ(n²). With n = 10⁶ that's 5·10¹¹. We can do <b>Θ(n log n)</b>.</p>
+</div>
+
+Note:
+⏱ 0:58–1:01.
+
+---
+
+## Warm-up in 1-D
+
+<div class="cols">
+<div>
+
+Points on a line: **sort** them, then the closest pair is one of the **n − 1 consecutive pairs**.
+
+O(n log n).
+
+</div>
+<div class="card">
+<h4>Why doesn't this work in 2-D?</h4>
+<p>Sorting by x puts far-apart points next to each other, and close points can be far apart in the order. We need <b>divide and conquer</b>.</p>
+</div>
+</div>
+
+Note:
+⏱ 1:01–1:03. Connect with Unit 1 (divide and conquer, master theorem).
+
+---
+
+## Divide & conquer in 2-D
+
+1. **Divide** by the vertical line through the median x.
+2. **Conquer**: closest pair on each side → δ = min(δ<sub>L</sub>, δ<sub>R</sub>). <!-- .element: class="fragment" -->
+3. **Combine**: a better pair must cross the line → both points lie in the **strip of width 2δ**. <!-- .element: class="fragment" -->
+4. Sort the strip by y; compare each point only with the **next 7** in that order. <!-- .element: class="fragment" -->
+
+<details><summary>Why at most 7?</summary>
+Consider the δ × 2δ rectangle above a strip point p. Split it into 8 squares of side δ/2. Two points in the same square would be at distance ≤ δ/√2 &lt; δ — impossible, since they'd be on the same side. So at most 8 points (including p) fit: p is compared with at most 7 others.
+</details>
+
+Note:
+⏱ 1:03–1:08.
+
+---
+
+## Watch it
+
+<div class="w" data-widget="closestpair" data-n="16" data-h="300"></div>
+
+Note:
+⏱ 1:08–1:15. Play at speed 6. Blue shading = current subproblem; orange band = strip of width 2δ; green = best pair so far. Then n = 24 and compare "distances computed" vs brute force.
+
+---
+
+## Complexity
+
+$$T(n) = 2\ T(n/2) + O(n) \quad\Rightarrow\quad T(n) = O(n \log n)$$
+
+- Pre-sort once by x **and** once by y; split the y-sorted list in O(n) at each level.
+- If we sort the strip at every level: T(n) = 2T(n/2) + O(n log n) = O(n log² n).
+- Lower bound Ω(n log n) in the algebraic decision-tree model (element uniqueness reduces to it).
+
+Note:
+⏱ 1:15–1:20. Same master-theorem case as merge sort: a = 2, b = 2, d = 1.
+
+---
+
+<!-- .slide: class="activity" -->
+## Your turn
+
+<div class="cols">
+<div>
+
+1. Orient (0,0), (2,1), (4,2). Then (0,0), (2,1), (1,3).
+2. Segments a=(0,0) b=(4,4) and c=(0,4) d=(4,0): run the 4 tests.
+3. In the closest-pair combine step with δ = 3, which points of the strip around x = 10 must be kept: x = 6, 8, 12.5, 13?
+
+</div>
+<div><div class="timer" data-seconds="360"></div>
+<details><summary>Answers</summary>1) (2)(2) − (1)(4) = 0 → collinear; (2)(3) − (1)(1) = 5 &gt; 0 → left turn. 2) orient(a,b,c) = 16 &gt; 0, orient(a,b,d) = −16 &lt; 0; orient(c,d,a) = −16, orient(c,d,b) = 16 → intersect at (2,2). 3) |x − 10| &lt; 3: keep 8 and 12.5.</details>
+</div>
+</div>
+
+Note:
+⏱ 1:20–1:30. Pairs. Then go to the exit ticket.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+## Exit ticket
+
+<div class="quiz" data-answer="3">
+<p class="q">1 · In the closest-pair combine step, each strip point is compared with…</p>
+<ol><li>all other strip points</li><li>all points on the other side</li><li>at most 7 following points in y-order</li><li>exactly one point</li></ol>
+<p class="explain">A packing argument bounds how many points fit in a δ × 2δ box.</p>
+</div>
+
+Note:
+⏱ 1:33–1:40. Swipe down for question 2. Reading: de Berg ch. 1 (1.1–1.2); CLRS 33.1 & 33.4.
+
+--
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="2">
+<p class="q">2 · orient(p, q, r) returns 12. The area of triangle pqr is…</p>
+<ol><li>12</li><li>6</li><li>24</li><li>√12</li></ol>
+<p class="explain">The determinant is twice the signed area.</p>
+</div>
+
+---
+
+## Takeaways
+
+- Computational geometry = **exact**, **asymptotically fast** algorithms on geometric objects.
+- Design: general position first → degeneracies → **robust primitives**.
+- **orient(p, q, r)**: one determinant decides left / right / collinear — and segment intersection.
+- **Closest pair** in Θ(n log n) by divide & conquer with a 2δ strip.
+
+<p class="muted small">Next: reporting all intersections among n segments — the plane sweep.</p>
+</textarea>
+</section>
+</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/markdown/markdown.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/math/math.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/zoom/zoom.js"></script>
+<script src="../assets/js/widgets.js"></script>
+<script src="../assets/js/widgets-geometry.js"></script>
+<script src="../assets/js/course.js"></script>
+<script>Course.init();</script>
+</body>
+</html>

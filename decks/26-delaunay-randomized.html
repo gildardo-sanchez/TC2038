@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Delaunay Triangulations and Randomized Algorithms · TC2038</title>
+<meta name="description" content="TC2038 Analysis and Design of Advanced Algorithms — Delaunay Triangulations and Randomized Algorithms">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<link rel="stylesheet" href="../assets/css/course.css">
+</head>
+<body>
+<div class="reveal">
+<div class="slides">
+<!--
+  SLIDES ARE WRITTEN IN MARKDOWN BELOW
+  ---   new horizontal slide        --    new vertical slide (press ↓)
+  Note: everything after this line is a speaker note (press S)
+  Keep HTML blocks (quizzes, widgets) flush-left and without blank lines inside.
+-->
+<section data-markdown data-separator="^---$" data-separator-vertical="^--$" data-separator-notes="^Note:">
+<textarea data-template>
+<!-- .slide: class="title" -->
+<span class="kicker">TC2038 · Unit 4 · Session 26</span>
+
+# Delaunay triangulations & randomized algorithms
+
+### The best triangulation — built by rolling dice
+
+<p class="byline">Dr. Gildardo Sánchez Ante · Tecnológico de Monterrey<br><span class="tiny">de Berg et al., ch. 9 · Motwani & Raghavan for randomization</span></p>
+
+Note:
+⏱ 0:00–0:02. Syllabus 4.2 (Delaunay) and 4.6 (randomized algorithms). Closing session of Unit 4: ties together hulls (lifting), Voronoi (duality) and randomization (RIC).
+
+---
+
+<!-- .slide: class="activity" -->
+## Warm-up: which terrain is right?
+
+We measured the height at a few points of a mountain ridge and must **interpolate** in between: triangulate the points, lift each triangle.
+
+<div class="cols">
+<div class="card"><h4>Triangulation A</h4><p>Fat triangles following the ridge.</p></div>
+<div class="card"><h4>Triangulation B</h4><p>Same points, one edge "flipped": a long, skinny triangle cuts a <b>narrow valley</b> through the ridge.</p></div>
+</div>
+
+<div class="quiz grid2" data-answer="1">
+<p class="q">Which one looks more natural, and why?</p>
+<ol><li>A: it avoids small angles</li><li>B: it has longer edges</li><li>Both equal</li><li>B: it has more triangles</li></ol>
+<p class="explain">Skinny triangles connect far-apart samples. We want to <b>maximize the smallest angle</b>.</p>
+</div>
+
+Note:
+⏱ 0:02–0:06. de Berg ch. 9 opening example (Figure 9.3) — also in your old Delaunay slides. Both triangulations have the same number of triangles (that's a theorem!).
+
+---
+
+## Today
+
+<ul class="agenda">
+<li><span class="t">0:06</span> Triangulations of point sets</li>
+<li><span class="t">0:12</span> Illegal edges & flips</li>
+<li><span class="t">0:25</span> <b>Pulse check 1</b></li>
+<li><span class="t">0:30</span> Delaunay = dual of Voronoi · properties</li>
+<li><span class="t">0:42</span> Randomized algorithms: Las Vegas & Monte Carlo</li>
+<li><span class="t">0:58</span> <b>Pulse check 2</b></li>
+<li><span class="t">1:02</span> Randomized incremental Delaunay</li>
+<li><span class="t">1:20</span> <b>Pulse check 3</b> · Unit 4 map</li>
+<li><span class="t">1:33</span> <b>Exit ticket</b></li>
+</ul>
+
+---
+
+## Triangulations of a point set
+
+A maximal planar subdivision whose vertices are P: every bounded face is a triangle, and the union is CH(P).
+
+<div class="cols">
+<div class="fragment">
+
+**de Berg Thm 9.1:** with n points, k of them on the hull, **every** triangulation has
+
+- 2n − 2 − k triangles
+- 3n − 3 − k edges
+
+</div>
+<div class="card fragment">
+<h4>But how many triangulations?</h4>
+<p>Exponentially many: n points in convex position already have a Catalan number of triangulations (≈ 4ⁿ); no set has more than 30ⁿ. We can't try them all: we need a criterion and an algorithm.</p>
+</div>
+</div>
+
+<div class="predict fragment" data-answer="14" data-tol="0">
+<p class="q">n = 10 points, k = 4 on the hull. How many triangles?</p>
+<p class="explain">2·10 − 2 − 4 = <b>14</b> (and 3·10 − 3 − 4 = 23 edges), for any triangulation.</p>
+</div>
+
+Note:
+⏱ 0:06–0:12. Proof uses Euler's formula, like the Voronoi bound.
+
+---
+
+## Angle-optimal & illegal edges
+
+<div class="cols">
+<div>
+
+- **Angle vector**: all 3m angles sorted increasingly. The best triangulation maximizes it lexicographically — first the **smallest angle**.
+- Edge ab shared by triangles abc and abd is **illegal** if **d lies inside the circle through a, b, c**. <!-- .element: class="fragment" -->
+- **Flipping** ab → cd increases the smallest of the six angles. <!-- .element: class="fragment" -->
+
+</div>
+<div class="card fragment">
+<h4>Why circles? (Thales)</h4>
+<p>Angles subtended by a chord are equal for points on the circle, larger inside, smaller outside. If d is inside the circle abc, the angles at c, d are "too small" — flipping fixes it.</p>
+</div>
+</div>
+
+Note:
+⏱ 0:12–0:17. de Berg Lemma 9.4 & Thm 9.2. The test "d inside circle abc" is one more determinant primitive (the in-circle test), like orientation.
+
+---
+
+## Flip until legal (Lawson)
+
+<div class="w" data-widget="flips" data-n="12" data-h="310"></div>
+
+Note:
+⏱ 0:17–0:25. Starts from a deliberately bad triangulation. Red edges are illegal; the orange disk shows the circumcircle containing the opposite vertex (red ring). Each flip removes an illegal edge (green = the new edge). Watch "smallest angle" go up. Termination: the angle vector increases with every flip, and there are finitely many triangulations → O(n²) flips in the worst case.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="2">
+<p class="q">Edge ab is shared by triangles abc and abd. It is illegal when…</p>
+<ol><li>ab is the longest edge</li><li>d is inside the circumcircle of a, b, c</li><li>abc is obtuse</li><li>a and b are hull vertices</li></ol>
+<p class="explain">Symmetric: d inside circle(abc) ⇔ c inside circle(abd).</p>
+</div>
+
+Note:
+⏱ 0:25–0:30.
+
+
+--
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="4">
+<p class="q">Lawson's flip algorithm always terminates because…</p>
+<ol><li>each flip shortens an edge</li><li>it flips each edge once at random</li><li>the number of triangles decreases</li><li>each flip increases the angle vector, and there are finitely many triangulations</li></ol>
+<p class="explain">A monotone potential over a finite set ⇒ termination.</p>
+</div>
+
+---
+
+## Delaunay = dual of Voronoi
+
+<div class="w" data-widget="voronoi" data-n="9" data-delaunay="1" data-h="280"></div>
+
+- Connect two sites iff their Voronoi cells **share an edge** → **Delaunay graph**; with general position it is a triangulation.
+- **Empty circle**: a triangle is Delaunay ⇔ its circumcircle contains **no other point**. Its circumcenter is a **Voronoi vertex**.
+
+Note:
+⏱ 0:30–0:36. Turn on "Empty circles at vertices": each circle passes through the 3 vertices of a Delaunay triangle and is empty. de Berg Thms 9.6–9.9: legal ⇔ Delaunay ⇔ angle-optimal. Degenerate case: 4 cocircular points → the Delaunay graph has a square face; any diagonal works.
+
+---
+
+## Why everyone uses Delaunay
+
+<div class="cols3">
+<div class="card"><h4>Max-min angle</h4><p>Among all triangulations it maximizes the smallest angle → best for interpolation and finite elements.</p></div>
+<div class="card"><h4>Contains useful graphs</h4><p>Euclidean <b>MST</b> ⊆ DT, nearest-neighbor graph ⊆ DT, closest pair is a DT edge.</p></div>
+<div class="card"><h4>Lifting map</h4><p>Lift (x, y) ↦ (x, y, x² + y²). The <b>lower convex hull</b> in 3-D projects to the DT → session 24's polytopes!</p></div>
+</div>
+
+<p class="small">Used in GIS terrains (TINs), meshing for simulations (CFD, FEM), graphics, path planning, Euclidean MST in O(n log n).</p>
+
+Note:
+⏱ 0:36–0:42. Euclidean MST: compute DT (3n edges) then Kruskal on it → O(n log n) instead of O(n² log n) on the complete graph. Links to Unit 3 (Prim/Kruskal).
+
+---
+
+<!-- .slide: class="divider" -->
+## Randomized algorithms
+
+An algorithm that **flips coins**. The input is fixed; the randomness is in the algorithm.
+
+<div class="cols">
+<div class="card fragment"><h4>Las Vegas</h4><p>Always <b>correct</b>; the <b>running time</b> is random. Analyze the <i>expected</i> time.</p><p class="muted">Randomized quicksort, RIC Delaunay, skip lists, treaps.</p></div>
+<div class="card fragment"><h4>Monte Carlo</h4><p>Running time is fixed; the <b>answer</b> may be wrong with small probability. Repeat to reduce error.</p><p class="muted">Karger's min cut, Miller–Rabin primality, Monte Carlo integration.</p></div>
+</div>
+
+Note:
+⏱ 0:42–0:45. "Anyone who attempts to generate random numbers by deterministic means is, of course, living in a state of sin." — von Neumann. Computers generate pseudorandom numbers; good enough for algorithms, not for cryptography (use a CSPRNG). In C++ prefer std::mt19937 over rand().
+
+---
+
+## Monte Carlo: estimate by sampling
+
+<div class="w" data-widget="montecarlo" data-mode="pi" data-h="260"></div>
+
+Note:
+⏱ 0:45–0:50. Click +10, +100, +1,000… Then switch to ∫₀¹ x³ dx (the exercise from your old "Random applications" slides): true value 0.25. Error ~ 1/√N: to get one more correct digit you need 100× more samples. That's why Monte Carlo shines in high dimensions, where grids explode.
+
+---
+
+## Monte Carlo: Karger's min cut
+
+<div class="w" data-widget="karger" data-h="230"></div>
+
+Note:
+⏱ 0:50–0:56. Contract a random edge until 2 super-vertices remain; the edges between them form a cut. One trial finds THE minimum cut with probability ≥ 2/(n(n−1)). Click "Run 1,000 trials": the observed rate is much higher than the bound on this graph. Repeat T = n² ln n times → failure probability ≤ 1/n.
+
+---
+
+## Las Vegas: why randomize the order?
+
+<div class="cols">
+<div>
+
+**Randomized quicksort**: pick a random pivot.
+
+- Worst case still O(n²)… but no input is bad: the **expected** time is O(n log n) for **every** input.
+- An adversary can't build a killer input, because they don't know our coin flips.
+
+</div>
+<div class="card">
+<h4>Classic exercise</h4>
+<p>"Stupid sort": shuffle until sorted. Expected number of shuffles = n! → expected time Θ(n·n!). Randomization doesn't make bad ideas good.</p>
+</div>
+</div>
+
+Note:
+⏱ 0:56–0:58. Your old slides' StupidSort analysis.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="2">
+<p class="q">Randomized quicksort is…</p>
+<ol><li>Monte Carlo: it may return an unsorted array</li><li>Las Vegas: always correct, random running time</li><li>deterministic</li><li>neither</li></ol>
+<p class="explain">The output is always sorted; only the time depends on the pivots chosen.</p>
+</div>
+
+Note:
+⏱ 0:58–1:02.
+
+
+--
+
+<!-- .slide: class="checkpoint" -->
+<div class="predict" data-answer="100" data-tol="0">
+<p class="q">Monte Carlo error ∝ 1/√N. To make the error 10× smaller you need how many times more samples?</p>
+<p class="explain">√(100) = 10 → <b>100×</b> more samples.</p>
+</div>
+
+---
+
+## Randomized incremental construction (RIC)
+
+```text [1|2|3-5|6]
+DelaunayTriangulation(P):
+    start with a huge triangle containing all points
+    for each point p in RANDOM order:
+        locate the triangle containing p;  split it into 3
+        legalize: flip illegal edges around p (recursively)
+    remove the huge triangle
+```
+
+<p class="small">Each flip creates an edge incident to p, so the work of one insertion ∝ the <b>degree of p</b> in the current DT.</p>
+
+Note:
+⏱ 1:02–1:06. de Berg 9.3. Point location is done with the history DAG of destroyed triangles (O(log n) expected), or by walking.
+
+---
+
+## Watch RIC
+
+<div class="w" data-widget="ric" data-n="14" data-h="300"></div>
+
+Note:
+⏱ 1:06–1:14. Red: triangles whose circumcircle contains the new point (they are destroyed); green: new triangles around it. This "cavity" view (Bowyer–Watson) yields the same result as split + flips. Watch the running average of triangles created per insertion: it stays small (≈ 6). Try "New random order".
+
+---
+
+## Why random order works: backwards analysis
+
+<div class="cols">
+<div>
+
+- Run the movie **backwards**: delete a random point from DT(Pᵣ).
+- The work of inserting pᵣ = its degree in DT(Pᵣ).
+- Average degree in a planar triangulation ≤ 6 (Euler: < 3n edges) → **expected O(1) changes** per insertion.
+
+</div>
+<div class="card">
+<h4>Results (de Berg)</h4>
+<p>Expected triangles created ≤ <b>9n + 1</b> (Lemma 9.11).</p>
+<p>Expected time <b>O(n log n)</b>, expected space O(n) (Thm 9.12).</p>
+<p>A bad order (e.g., sorted on a parabola) can cost Θ(n²).</p>
+</div>
+</div>
+
+Note:
+⏱ 1:14–1:20. Backwards analysis: since the order is random, the last point inserted is a uniformly random point of Pᵣ — so its expected degree is the average degree.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="3">
+<p class="q">Why does RIC insert points in random order?</p>
+<ol><li>To get a different triangulation each time</li><li>Because sorting is too slow</li><li>So that the expected work per insertion is O(1) on every input — no adversarial order</li><li>To make it Monte Carlo</li></ol>
+<p class="explain">The result (the DT) is the same for any order; only the cost changes. RIC is Las Vegas.</p>
+</div>
+
+Note:
+⏱ 1:20–1:25.
+
+
+--
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="1">
+<p class="q">Delaunay triangulation and Voronoi diagram are…</p>
+<ol><li>duals: Delaunay edges connect sites with adjacent Voronoi cells</li><li>the same thing</li><li>unrelated</li><li>both O(n²) in size</li></ol>
+<p class="explain">Both have linear size; one can be converted into the other in O(n).</p>
+</div>
+
+---
+
+## Unit 4 map
+
+| Problem | Best algorithm | Time | Key idea |
+|---|---|---|---|
+| Orientation / segment test | determinant | O(1) | sign of a cross product |
+| Closest pair | divide & conquer | O(n log n) | 2δ strip, ≤ 7 neighbors |
+| All segment intersections | Bentley–Ottmann sweep | O((n + k) log n) | test neighbors only |
+| Range search | kd-tree / range tree | O(√n + k) / O(log² n + k) | space partition |
+| Convex hull | sweep / gift wrapping | O(n log n) / O(nh) | turn tests |
+| Line arrangement | incremental | O(n²) | duality |
+| Voronoi diagram | Fortune | O(n log n) | beach line |
+| Delaunay triangulation | RIC | O(n log n) expected | random order + flips |
+
+Note:
+⏱ 1:25–1:33. Leave on screen during the exit ticket. Ask: "Which of these use the orientation test?" (almost all).
+
+---
+
+<!-- .slide: class="checkpoint" -->
+## Exit ticket
+
+<div class="quiz" data-answer="2">
+<p class="q">1 · The Delaunay triangulation maximizes…</p>
+<ol><li>the number of triangles</li><li>the minimum angle over all triangulations</li><li>the total edge length</li><li>the number of hull vertices</li></ol>
+<p class="explain">de Berg Thm 9.9. (It does not minimize total edge length — that's the NP-hard minimum-weight triangulation.)</p>
+</div>
+
+Note:
+⏱ 1:33–1:40. Swipe down for question 2. Reading: de Berg 9.1–9.4; CLRS 7.3 (randomized quicksort); Karger (1993).
+
+--
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="1">
+<p class="q">2 · Karger's algorithm finds the minimum cut with probability ≥ 2/(n(n−1)) per trial. It is…</p>
+<ol><li>Monte Carlo: fixed time, may be wrong</li><li>Las Vegas: always right</li><li>deterministic</li><li>a greedy algorithm</li></ol>
+<p class="explain">Repeating boosts the success probability: failure ≤ (1 − 2/n²)ᵀ.</p>
+</div>
+
+---
+
+## Takeaways
+
+- Every triangulation of P has **2n − 2 − k** triangles; **Delaunay** = no illegal edges = **empty circles** = max-min angle.
+- Delaunay is the **dual of Voronoi** and the **projection of a 3-D lower hull**.
+- **Las Vegas** (always right, random time) vs **Monte Carlo** (fixed time, maybe wrong).
+- **RIC** in random order: expected O(1) changes per point → **O(n log n)** expected.
+
+<p class="muted small">End of Unit 4. Next unit: advanced search techniques.</p>
+</textarea>
+</section>
+</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/markdown/markdown.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/math/math.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/zoom/zoom.js"></script>
+<script src="../assets/js/widgets.js"></script>
+<script src="../assets/js/widgets-geometry.js"></script>
+<script src="../assets/js/course.js"></script>
+<script>Course.init();</script>
+</body>
+</html>
