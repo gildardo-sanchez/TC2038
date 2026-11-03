@@ -272,7 +272,7 @@ Note:
 <div class="w" data-widget="kdtree" data-n="16" data-h="300"></div>
 
 Note:
-⏱ 1:05–1:15. Build phase: blue = vertical split (by x, even depth), orange = horizontal split (by y, odd depth), each at the median. Query phase: gray regions are pruned (disjoint); green regions are fully inside → whole subtree reported without tests; blue box = node being visited. Press "New query range" several times.
+⏱ 1:05–1:15. Left: the plane; right: the tree, synchronized. Build phase: blue = vertical split (by x, even depth), orange = horizontal split (by y, odd depth), each at the median; every split creates an internal node, every point ends in a leaf (numbered like the points, left to right). Ask: "which rectangle is this node?" Query phase: gray regions/subtrees are pruned (disjoint); green ones are fully inside → whole subtree reported without tests; blue = node being visited. Point out in the tree how few nodes are actually visited: that is the O(√n + k) bound. Press "New query range" several times.
 
 ---
 

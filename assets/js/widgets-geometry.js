@@ -312,52 +312,79 @@
      ======================================================= */
   register("kdtree", (host, dd) => {
     const W = 900, H = 400;
-    let seed = parseInt(dd.seed || "3", 10), n = parseInt(dd.n || "16", 10), P = [], root = null, R = null;
-    const sv = mkSvg(W, H);
+    let seed = parseInt(dd.seed || "3", 10), n = parseInt(dd.n || "16", 10), P = [], root = null, R = null, nodes = [];
+    const sv = mkSvg(W, H), tv = mkSvg(600, 330);
     const stats = h("div", { class: "w-stats" });
     const stepper = Stepper(draw);
-    host.append(h("div", { class: "w-toolbar" }, btn("New points", () => { seed++; build(); }), btn("New query range", () => { R = randRect(); build(true); })), sv, stepper.bar, stepper.caption, stats);
+    const legend = h("div", { class: "tiny muted", style: "margin-top:.2em;line-height:1.35" });
+    host.append(h("div", { class: "w-toolbar" }, btn("New points", () => { seed++; build(); }), btn("New query range", () => { R = randRect(); build(true); })),
+      h("div", { style: "display:grid;grid-template-columns:1.25fr 1fr;gap:.8em;align-items:center" }, sv, h("div", {}, tv, legend)), stepper.bar, stepper.caption, stats);
     function randRect() { const r = rng(seed * 31 + Math.floor(Math.random() * 1000)); const w = 200 + r() * 220, hh = 120 + r() * 150; const x = 20 + r() * (W - w - 40), y = 20 + r() * (H - hh - 40); return { x0: x, x1: x + w, y0: y, y1: y + hh }; }
     function build(keepPts) {
       if (!keepPts) { P = randomPoints(n, W, H, seed, 26); R = R || { x0: 380, x1: 690, y0: 120, y1: 310 }; }
-      const frames = []; const lines = [];
-      function mk(pts, depth, box) {
-        if (pts.length === 1) return { leaf: true, p: pts[0], box, depth };
+      const frames = []; const lines = []; nodes = []; const made = new Set();
+      function mk(pts, depth, box, parent) {
+        const node = { id: nodes.length, depth, box, parent }; nodes.push(node); made.add(node.id);
+        if (pts.length === 1) { node.leaf = true; node.p = pts[0]; return node; }
         const vert = depth % 2 === 0; const key = vert ? "x" : "y";
         const s = pts.slice().sort((a, b) => a[key] - b[key]); const m = Math.ceil(s.length / 2) - 1;
         const val = (s[m][key] + s[m + 1][key]) / 2;
-        const node = { leaf: false, vert, val, box, depth };
+        Object.assign(node, { leaf: false, vert, val });
         lines.push({ vert, val, box, depth });
-        frames.push({ phase: "build", lines: lines.slice(), box, msg: `Depth ${depth}: split ${s.length} points by a <b>${vert ? "vertical" : "horizontal"}</b> line at the median ${vert ? "x" : "y"}` });
+        frames.push({ phase: "build", lines: lines.slice(), box, cur: node.id, made: new Set(made), msg: `Depth ${depth}: split ${s.length} points by a <b>${vert ? "vertical" : "horizontal"}</b> line at the median ${vert ? "x" : "y"} → new internal node (${vert ? "x" : "y"}); left child gets ${m + 1}, right child ${s.length - m - 1}` });
         const b1 = Object.assign({}, box), b2 = Object.assign({}, box);
         if (vert) { b1.x1 = val; b2.x0 = val; } else { b1.y1 = val; b2.y0 = val; }
-        node.left = mk(s.slice(0, m + 1), depth + 1, b1); node.right = mk(s.slice(m + 1), depth + 1, b2);
+        node.left = mk(s.slice(0, m + 1), depth + 1, b1, node.id); node.right = mk(s.slice(m + 1), depth + 1, b2, node.id);
         return node;
       }
-      root = mk(P, 0, { x0: 0, x1: W, y0: 0, y1: H });
-      const allLines = lines.slice();
-      frames.push({ phase: "build", lines: allLines, msg: `kd-tree ready: ${n} leaves, depth ${Math.ceil(Math.log2(n))}, O(n) storage, built in O(n log n).` });
+      root = mk(P, 0, { x0: 0, x1: W, y0: 0, y1: H }, null);
+      // label points by leaf order (left to right in the tree)
+      let k = 0; (function lab(nd) { if (nd.leaf) { nd.p.lab = ++k; nd.slot = k - 1; return; } lab(nd.left); lab(nd.right); nd.slot = (nd.left.slot + nd.right.slot) / 2; })(root);
+      const allLines = lines.slice(), all = new Set(made);
+      frames.push({ phase: "build", lines: allLines, made: all, msg: `kd-tree ready: ${n} leaves (one point each), ${n - 1} internal nodes, depth ${Math.ceil(Math.log2(n))}. O(n) storage, built in O(n log n). Each node ↔ a rectangular region.` });
       // query
       const inside = (p) => p.x >= R.x0 && p.x <= R.x1 && p.y >= R.y0 && p.y <= R.y1;
       const contained = (b) => b.x0 >= R.x0 && b.x1 <= R.x1 && b.y0 >= R.y0 && b.y1 <= R.y1;
       const disjoint = (b) => b.x1 < R.x0 || b.x0 > R.x1 || b.y1 < R.y0 || b.y0 > R.y1;
-      const reported = [], pruned = [], whole = []; let visited = 0;
-      const leaves = (nd) => nd.leaf ? [nd.p] : leaves(nd.left).concat(leaves(nd.right));
-      const q = (o) => frames.push(Object.assign({ phase: "query", lines: allLines, reported: reported.slice(), pruned: pruned.slice(), whole: whole.slice(), visited }, o));
-      q({ msg: "Query: report every point inside the orange rectangle." });
+      const reported = [], pruned = [], whole = [], st = {}; let visited = 0;
+      const sub = (nd) => nd.leaf ? [nd] : [nd].concat(sub(nd.left), sub(nd.right));
+      const q = (o) => frames.push(Object.assign({ phase: "query", lines: allLines, made: all, reported: reported.slice(), pruned: pruned.slice(), whole: whole.slice(), st: Object.assign({}, st), visited }, o));
+      q({ msg: "Query: report every point inside the orange rectangle. Start at the root." });
       function search(nd) {
-        visited++;
-        if (nd.leaf) { const ok = inside(nd.p); if (ok) reported.push(nd.p); q({ box: nd.box, msg: `Leaf: check the point → ${ok ? '<span class="ok">inside, report</span>' : "outside"}` }); return; }
+        visited++; st[nd.id] = "visit";
+        if (nd.leaf) { const ok = inside(nd.p); if (ok) reported.push(nd.p); st[nd.id] = ok ? "hit" : "miss"; q({ box: nd.box, cur: nd.id, msg: `Leaf ${nd.p.lab}: check the point → ${ok ? '<span class="ok">inside, report</span>' : "outside"}` }); return; }
         [nd.left, nd.right].forEach((c) => {
-          if (contained(c.box)) { const ls = leaves(c); reported.push(...ls); whole.push(c.box); visited++; q({ box: c.box, msg: `Region fully inside the range → <span class="ok">report the whole subtree (${ls.length} points) without more tests</span>` }); }
-          else if (disjoint(c.box)) { pruned.push(c.box); visited++; q({ box: c.box, msg: `Region disjoint from the range → <span class="bad">prune the subtree</span>` }); }
-          else { q({ box: c.box, msg: `Region partially intersects the range → go down` }); search(c); }
+          if (contained(c.box)) { const ss = sub(c); ss.forEach((x) => (st[x.id] = "whole")); const ls = ss.filter((x) => x.leaf).map((x) => x.p); reported.push(...ls); whole.push(c.box); visited++; q({ box: c.box, cur: c.id, msg: `Region fully inside the range → <span class="ok">report the whole subtree (${ls.length} point${ls.length > 1 ? "s" : ""}) without more tests</span>` }); }
+          else if (disjoint(c.box)) { sub(c).forEach((x) => (st[x.id] = "prune")); pruned.push(c.box); visited++; q({ box: c.box, cur: c.id, msg: `Region disjoint from the range → <span class="bad">prune the subtree</span>` }); }
+          else { st[c.id] = "visit"; q({ box: c.box, cur: c.id, msg: `Region partially intersects the range → go down` }); search(c); }
         });
       }
       search(root);
       q({ done: true, msg: `Reported <b>${reported.length}</b> points visiting ${visited} nodes (tree has ${2 * n - 1}). Query time O(√n + k).` });
-      stepper.set(frames, keepPts ? 0 : 0);
-      if (keepPts) { let k = frames.findIndex((f) => f.phase === "query"); for (let i = 0; i < k; i++) stepper.step(1); }
+      stepper.set(frames, 0);
+      if (keepPts) { const k2 = frames.findIndex((f) => f.phase === "query"); for (let i = 0; i < k2; i++) stepper.step(1); }
+    }
+    function drawTree(f) {
+      tv.replaceChildren();
+      const maxD = Math.max(...nodes.map((x) => x.depth)), TW = 600, TH = 330;
+      const sx = (TW - 40) / Math.max(1, n - 1), sy = (TH - 50) / Math.max(1, maxD);
+      const X = (nd) => 20 + nd.slot * sx, Y = (nd) => 22 + nd.depth * sy;
+      const col = { visit: "var(--accent)", hit: "var(--ok)", whole: "var(--ok)", prune: "var(--muted)", miss: "var(--ink)" };
+      const vis = (nd) => f.made.has(nd.id);
+      nodes.forEach((nd) => { if (nd.parent != null && vis(nd)) { const p = nodes[nd.parent]; const s = f.st && f.st[nd.id]; tv.append(S("line", { x1: X(p), y1: Y(p), x2: X(nd), y2: Y(nd), style: `stroke:${s === "prune" ? "var(--line)" : s ? col[s] : "var(--line)"};stroke-width:${s && s !== "prune" && s !== "miss" ? 3 : 1.6};${s === "prune" ? "stroke-dasharray:4 4" : ""}` })); } });
+      nodes.forEach((nd) => {
+        if (!vis(nd)) return; const s = f.st && f.st[nd.id]; const cur = nd.id === f.cur; const x = X(nd), y = Y(nd);
+        if (nd.leaf) {
+          const r = 11; tv.append(S("rect", { x: x - r, y: y - r, width: 2 * r, height: 2 * r, rx: 4, style: `fill:${s === "hit" || s === "whole" ? "var(--ok)" : s === "prune" ? "var(--line)" : "var(--surface)"};stroke:${cur ? "var(--accent)" : "var(--ink)"};stroke-width:${cur ? 4 : 1.5};opacity:${s === "prune" ? 0.45 : 1}` }));
+          tv.append(S("text", { x, y: y + 5, "text-anchor": "middle", "font-size": 13, "font-weight": 700, class: "mono", style: s === "hit" || s === "whole" ? "fill:#fff" : "" }, String(nd.p.lab)));
+        } else {
+          const c = nd.vert ? "var(--accent)" : "var(--hot)";
+          tv.append(S("circle", { cx: x, cy: y, r: 13, style: `fill:${s === "whole" ? "var(--ok-soft)" : s === "prune" ? "var(--line)" : s === "visit" ? "var(--accent-soft)" : "var(--surface)"};stroke:${cur ? "var(--ink)" : c};stroke-width:${cur ? 4.5 : 2.5};opacity:${s === "prune" ? 0.45 : 1}` }));
+          tv.append(S("text", { x, y: y + 5, "text-anchor": "middle", "font-size": 13, "font-weight": 700, style: `fill:${c}` }, nd.vert ? "x" : "y"));
+        }
+      });
+      legend.innerHTML = f.phase === "build" ? '<span style="color:var(--accent)">●</span> x-split (vertical line) · <span style="color:var(--hot)">●</span> y-split (horizontal) · squares = leaves, numbered like the points'
+        : '<span style="color:var(--accent)">■</span> visited · <span style="color:var(--ok)">■</span> reported / whole subtree · <span style="color:var(--muted)">■</span> pruned (never visited below)';
     }
     function draw(f) {
       sv.replaceChildren(); const d = D(sv, H);
@@ -372,7 +399,8 @@
         if (l.vert) d.line({ x: l.val, y: l.box.y0 }, { x: l.val, y: l.box.y1 }, st); else d.line({ x: l.box.x0, y: l.val }, { x: l.box.x1, y: l.val }, st);
       });
       const rep = new Set(f.reported || []);
-      P.forEach((p) => d.dot(p, rep.has(p) ? 9 : 6, `fill:${rep.has(p) ? "var(--ok)" : "var(--ink)"}`));
+      P.forEach((p) => { d.dot(p, rep.has(p) ? 9 : 6, `fill:${rep.has(p) ? "var(--ok)" : "var(--ink)"}`); if (p.lab) d.text(p, String(p.lab), "fill:var(--muted)", 15, 8, -7); });
+      drawTree(f);
       stats.replaceChildren(stat("n =", n), f.phase === "query" ? stat("nodes visited:", f.visited) : stat("splitting lines:", f.lines.length), f.phase === "query" ? stat("reported:", (f.reported || []).length) : stat("√n ≈", Math.round(Math.sqrt(n))));
     }
     build();
