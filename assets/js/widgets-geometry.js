@@ -410,6 +410,104 @@
   /* =======================================================
      6. Convex hull: Andrew / de Berg (upper + lower) and Jarvis march
      ======================================================= */
+  /* -------- Classic hull sequences on the course's p0…p12 example (Jarvis, Graham, guess) -------- */
+  register("hullclassic", (host, dd) => {
+    const VW = 660, VH = 300;
+    const BASE = [[312, 444], [684, 414], [636, 396], [720, 330], [612, 348], [576, 306], [492, 282], [420, 300], [378, 354], [402, 276], [420, 192], [288, 330], [192, 354]];
+    let mode = dd.algo || "jarvis", P = [], seed = 7;
+    const sv = mkSvg(VW, VH), stats = h("div", { class: "w-stats" }), stepper = Stepper(draw);
+    const extra = h("div", { class: "cells", style: "align-items:center;min-height:2.1em;flex-wrap:wrap" });
+    const tools = [btn("Your example (p0…p12)", () => { setPts(BASE.map(([x, y]) => ({ x: x - 130, y: y - 162 }))); build(); }), btn("Random points", () => { seed++; const r = rng(seed); const pts = []; while (pts.length < 13) { const p = { x: 50 + r() * 560, y: 30 + r() * 245 }; if (pts.every((q) => Math.hypot(q.x - p.x, q.y - p.y) > 38)) pts.push(p); } setPts(pts); build(); })];
+    let revealBtn = null;
+    if (mode === "guess") { revealBtn = btn("Reveal the band", () => { revealed = !revealed; revealBtn.textContent = revealed ? "Hide" : "Reveal the band"; paintGuess(); }); tools.push(revealBtn, btn("Clear marks", () => { picked.clear(); revealed = false; revealBtn.textContent = "Reveal the band"; paintGuess(); })); }
+    host.append(h("div", { class: "w-toolbar" }, ...tools), sv, extra, stepper.bar, stepper.caption, stats);
+    if (mode === "guess") { stepper.bar.style.display = "none"; }
+    // geometry in math orientation (y up): screen y grows down, so flip for tests
+    const cross = (o, a, b) => (a.x - o.x) * (o.y - b.y) - (o.y - a.y) * (b.x - o.x); // > 0: o→a→b is a LEFT (counter-clockwise) turn on screen
+    const ang = (o, p) => Math.atan2(o.y - p.y, p.x - o.x); // math angle of o→p
+    function setPts(pts) {
+      const lo = pts.slice().sort((a, b) => b.y - a.y || a.x - b.x)[0];
+      const rest = pts.filter((p) => p !== lo).sort((a, b) => ang(lo, a) - ang(lo, b) || Math.hypot(a.x - lo.x, a.y - lo.y) - Math.hypot(b.x - lo.x, b.y - lo.y));
+      P = [lo, ...rest]; P.forEach((p, i) => (p.k = i));
+    }
+    function hullIdx() { // Graham, returns indices CCW from p0
+      const st = [0, 1]; for (let i = 2; i < P.length; i++) { while (st.length >= 2 && cross(P[st[st.length - 2]], P[st[st.length - 1]], P[i]) <= 0) st.pop(); st.push(i); } return st;
+    }
+    const picked = new Set(); let revealed = false;
+    sv.addEventListener("click", (e) => { if (mode !== "guess") return; const pt = sv.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY; const q = pt.matrixTransform(sv.getScreenCTM().inverse()); let best = null, bd = 30; P.forEach((p) => { const d = Math.hypot(p.x - q.x, p.y - q.y); if (d < bd) { bd = d; best = p; } }); if (best) { picked.has(best.k) ? picked.delete(best.k) : picked.add(best.k); paintGuess(); } });
+    function base(lbl) {
+      sv.replaceChildren();
+      return { pt(p, fill, r, ring) { sv.append(S("circle", { cx: p.x, cy: p.y, r: r || 8, style: `fill:${fill || "var(--ok)"};stroke:${ring || "var(--ink)"};stroke-width:${ring ? 3.5 : 1.2}` })); if (lbl) { const tx = S("text", { x: p.x + 9, y: p.y - 8, "font-size": 19, "font-style": "italic", style: "fill:var(--muted)" }, "p"); tx.append(S("tspan", { dy: 5, "font-size": 13 }, String(p.k))); sv.append(tx); } },
+        seg(a, b, st) { sv.append(S("line", { x1: a.x, y1: a.y, x2: b.x, y2: b.y, style: st })); },
+        arc(o, a0, a1, r, col) { // math angles, a1 >= a0
+          const pts = []; for (let i = 0; i <= 30; i++) { const a = a0 + (a1 - a0) * i / 30; pts.push(`${o.x + r * Math.cos(a)},${o.y - r * Math.sin(a)}`); }
+          sv.append(S("polyline", { points: pts.join(" "), style: `fill:none;stroke:${col};stroke-width:2.5` })); } };
+    }
+    function paintGuess() {
+      const d = base(true); const H = new Set(hullIdx());
+      if (revealed) { const hi = hullIdx(); hi.forEach((a, i) => d.seg(P[a], P[hi[(i + 1) % hi.length]], "stroke:var(--accent);stroke-width:4;opacity:.8")); }
+      P.forEach((p) => { const pk = picked.has(p.k); let fill = pk ? "var(--hot)" : "var(--ink)"; if (revealed) fill = H.has(p.k) ? (pk ? "var(--ok)" : "var(--accent)") : (pk ? "var(--bad)" : "var(--ink)"); d.pt(p, fill, pk || (revealed && H.has(p.k)) ? 9 : 6); });
+      const ok = [...picked].filter((k) => H.has(k)).length, wrong = picked.size - ok;
+      stepper.caption.innerHTML = revealed ? `The band touches <b>${H.size}</b> points. Marked correctly: <span class="ok">${ok}</span> · marked but inside: <span class="bad">${wrong}</span> · missed: ${H.size - ok}.` : "Click the points you think the rubber band will touch (click again to unmark). Then reveal.";
+      extra.replaceChildren();
+    }
+    function build() {
+      if (mode === "guess") { picked.clear(); revealed = false; if (revealBtn) revealBtn.textContent = "Reveal the band"; paintGuess(); return; }
+      const frames = [], n = P.length;
+      if (mode === "jarvis") {
+        let cur = 0, dirA = 0, hull = [0], checks = 0, guard = 0;
+        frames.push({ hull: [0], cur: 0, dirA: 0, msg: "Start at the lowest point p0: it is surely on the hull. Reference direction: the horizontal line through it." });
+        while (guard++ < 40) {
+          const cands = []; P.forEach((p, i) => { if (i === cur) return; let a = ang(P[cur], p) - dirA; while (a < -1e-9) a += 2 * Math.PI; cands.push({ i, a }); }); checks += cands.length;
+          cands.sort((x, y) => x.a - y.a || Math.hypot(P[y.i].x - P[cur].x, P[y.i].y - P[cur].y) - Math.hypot(P[x.i].x - P[cur].x, P[x.i].y - P[cur].y));
+          const nx = cands[0].i;
+          frames.push({ hull: hull.slice(), cur, dirA, rays: true, checks, msg: `From p${cur}: measure the counter-clockwise angle from the ${hull.length === 1 ? "horizontal" : "extension of the last edge"} to <b>every</b> other point (${cands.length} checks).` });
+          frames.push({ hull: hull.slice(), cur, dirA, win: nx, wa: cands[0].a, checks, msg: `Smallest angle: p${nx} (${(cands[0].a * 180 / Math.PI).toFixed(1)}°) → ${nx === 0 ? "back at p0, the hull is closed." : `edge p${cur}p${nx} is on the hull.`}` });
+          dirA = ang(P[cur], P[nx]); cur = nx; if (cur === 0) break; hull.push(cur);
+        }
+        frames.push({ hull, closed: true, checks, msg: `Hull: ${hull.map((i) => "p" + i).join(" → ")} → p0. h = ${hull.length} vertices, ${checks} angle checks ≈ n·h = ${n}·${hull.length}: <b>O(nh)</b>.` });
+      } else {
+        frames.push({ msg: "Step 1: pick the lowest point p0 (it is on the hull)." , g: "p0" });
+        frames.push({ g: "rays", msg: "Step 2: sort the other points by the angle they make with p0 (labels p1…p12 are that order)." });
+        frames.push({ g: "poly", msg: "Step 3: connecting them in sorted order gives a star-shaped polygon — usually NOT convex. Now we 'wrap' it." });
+        const st = [0, 1]; let pops = 0;
+        frames.push({ g: "scan", st: st.slice(), msg: "Step 4: push p0 and p1 on a stack." });
+        for (let i = 2; i < n; i++) {
+          while (st.length >= 2 && cross(P[st[st.length - 2]], P[st[st.length - 1]], P[i]) <= 0) { const a = st[st.length - 2], b = st[st.length - 1]; frames.push({ g: "scan", st: st.slice(), test: [a, b, i], bad: true, msg: `p${a} → p${b} → p${i} is a <span class="bad">right turn</span> (or straight): p${b} cannot be on the hull → pop it.` }); st.pop(); pops++; }
+          if (st.length >= 2) { const a = st[st.length - 2], b = st[st.length - 1]; frames.push({ g: "scan", st: st.slice(), test: [a, b, i], bad: false, msg: `p${a} → p${b} → p${i} is a <span class="ok">left turn</span> → push p${i}.` }); }
+          st.push(i);
+        }
+        frames.push({ g: "scan", st: st.slice(), closed: true, msg: `Close back to p0. Hull: ${st.map((i) => "p" + i).join(" → ")}. ${n} pushes + ${pops} pops ≤ 2n stack operations: O(n) after the O(n log n) sort.` });
+      }
+      stepper.set(frames);
+    }
+    function draw(f) {
+      if (mode === "guess") return paintGuess();
+      const d = base(true); const n = P.length;
+      if (mode === "jarvis") {
+        const c = P[f.cur != null ? f.cur : 0];
+        if (f.rays) P.forEach((p, i) => { if (i !== f.cur) d.seg(c, p, "stroke:var(--muted);stroke-width:1.2;stroke-dasharray:3 4"); });
+        if (f.cur != null && !f.closed) { const L = 160; d.seg({ x: c.x - (f.hull.length === 1 ? L : 0), y: c.y }, { x: c.x + L * Math.cos(f.dirA), y: c.y - L * Math.sin(f.dirA) }, "stroke:#1098ad;stroke-width:2.5;stroke-dasharray:8 6"); if (f.hull.length === 1) d.seg({ x: c.x - L, y: c.y }, { x: c.x + L, y: c.y }, "stroke:#1098ad;stroke-width:2.5;stroke-dasharray:8 6"); }
+        const hp = f.hull.concat(f.closed ? [0] : []); for (let i = 0; i + 1 < hp.length; i++) d.seg(P[hp[i]], P[hp[i + 1]], "stroke:var(--ink);stroke-width:3.5");
+        if (f.win != null) { d.seg(c, P[f.win], "stroke:var(--hot);stroke-width:4"); d.arc(c, f.dirA, f.dirA + f.wa, 34, "var(--bad)"); }
+        P.forEach((p, i) => d.pt(p, f.hull.includes(i) || i === f.win ? "#1098ad" : "var(--ok)", 7, i === f.cur && !f.closed ? "var(--hot)" : null));
+        extra.replaceChildren(h("span", { class: "tiny muted" }, "hull so far:"), ...f.hull.map((i) => h("div", { class: "cell good" }, "p" + i)));
+        stats.replaceChildren(stat("n =", n), stat("hull vertices:", f.hull.length), stat("angle checks:", f.checks || 0));
+      } else {
+        if (f.g !== "p0") P.forEach((p, i) => { if (i) d.seg(P[0], p, "stroke:var(--muted);stroke-width:1.2;stroke-dasharray:3 4"); });
+        if (f.g === "poly") for (let i = 0; i < n; i++) d.seg(P[i], P[(i + 1) % n], "stroke:var(--hot);stroke-width:2.5");
+        if (f.st) { for (let i = 0; i + 1 < f.st.length; i++) d.seg(P[f.st[i]], P[f.st[i + 1]], "stroke:var(--ink);stroke-width:3.5"); if (f.closed) d.seg(P[f.st[f.st.length - 1]], P[0], "stroke:var(--ink);stroke-width:3.5"); }
+        if (f.test) { const [a, b, c] = f.test; const col = f.bad ? "var(--bad)" : "var(--ok)"; d.seg(P[a], P[b], `stroke:${col};stroke-width:3;stroke-dasharray:7 5`); d.seg(P[b], P[c], `stroke:${col};stroke-width:3;stroke-dasharray:7 5`); }
+        P.forEach((p, i) => d.pt(p, f.st && f.st.includes(i) ? "#1098ad" : "var(--ok)", 7, f.test && i === f.test[1] ? (f.bad ? "var(--bad)" : "var(--ok)") : i === 0 ? "var(--hot)" : null));
+        extra.replaceChildren(...(f.st ? [h("span", { class: "tiny muted" }, "stack (bottom → top):"), ...f.st.map((i, k) => h("div", { class: "cell " + (k === f.st.length - 1 && f.bad ? "mid" : "ref") }, "p" + i))] : [h("span", { class: "tiny muted" }, f.g === "p0" ? "" : "sorted by angle: " + P.slice(1).map((p) => "p" + p.k).join(", "))]));
+        stats.replaceChildren(stat("n =", n));
+      }
+    }
+    setPts(BASE.map(([x, y]) => ({ x: x - 130, y: y - 162 })));
+    build();
+    return mode === "guess" ? {} : { stepper };
+  });
+
   register("hull", (host, dd) => {
     const W = 900, H = 400;
     let seed = parseInt(dd.seed || "4", 10), n = parseInt(dd.n || "14", 10), algo = dd.algo || "andrew", P = [];

@@ -171,6 +171,8 @@ En casi todos se puede **hacer clic para agregar puntos** y **arrastrarlos**.
 | `montecarlo` | Estimación de π o de ∫₀¹ x³ dx con dardos | `data-mode="pi\|int"` |
 | `karger` | Corte mínimo de Karger (contracción aleatoria) | — |
 
+Widget adicional de la sesión 4.3: `hullclassic` — tu ejemplo p0…p12 con `data-algo="guess|jarvis|graham"` (adivinar qué puntos toca la liga · Jarvis march con ángulos · Graham scan con pila).
+
 ### Widgets de búsqueda avanzada (Unidad 5)
 
 Requieren cargar también `assets/js/widgets-search.js` (ya incluido en las sesiones 5.1–5.4).

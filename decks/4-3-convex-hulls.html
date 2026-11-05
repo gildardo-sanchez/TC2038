@@ -28,25 +28,24 @@
 
 # Convex hulls, polytopes & duality
 
-### From rubber bands to hyperplane arrangements
+### From rubber bands and gift wrapping to hyperplane arrangements
 
-<p class="byline">Dr. Gildardo Sánchez Ante · Tecnológico de Monterrey<br><span class="tiny">de Berg et al., ch. 1, 8 and 11 · O'Rourke, ch. 3–4</span></p>
+<p class="byline">Dr. Gildardo Sánchez Ante · Tecnológico de Monterrey<br><span class="tiny">de Berg et al., ch. 1, 8 and 11 · O'Rourke, ch. 3–4 · Jarvis (1973) · Graham (1972)</span></p>
 
 Note:
-⏱ 0:00–0:02. Covers syllabus 4.5 (convex hulls, polytopes) and 4.4 (hyperplane arrangements, via duality). de Berg opens the whole book with the convex hull — it is the "hello world" of computational geometry.
+⏱ 0:00–0:02. Covers syllabus 4.5 (convex hulls, polytopes) and 4.4 (hyperplane arrangements, via duality). de Berg opens the whole book with the convex hull — it is the "hello world" of computational geometry. Today's two main algorithms (Jarvis march and Graham scan) are animated on the same 13-point example (p0…p12) from your previous slides.
 
 ---
 
 <!-- .slide: class="activity" -->
 ## Warm-up: the rubber band
 
-Hammer nails into a board at the points. Stretch a rubber band around all of them and let it go.
+Hammer a nail at every point. Stretch a rubber band around all of them and let it go. **Which nails will it touch?**
 
-<div class="w" data-widget="hull" data-algo="andrew" data-n="12" data-h="250"></div>
+<div class="w" data-widget="hullclassic" data-algo="guess" data-h="300"></div>
 
 Note:
-⏱ 0:02–0:07. de Berg ch. 1 uses exactly this metaphor. Ask before revealing.
-
+⏱ 0:02–0:07. No algorithm yet — this is about understanding the PROBLEM. (1) Ask the room which points the band touches; click them as they call them out. (2) Ask: "you see it instantly — how would a computer decide, if it only has a list of (x, y) coordinates?" Pairs, 2 minutes. Write the ideas on the board: "the lowest/leftmost point is surely on it", "keep turning to the most outside point" (= Jarvis), "a point inside a triangle of other points is not on it", "go around in angular order and discard dents" (= Graham). (3) Only then press "Reveal the band". Refer back to the board ideas during the class.
 
 --
 
@@ -54,7 +53,7 @@ Note:
 <div class="quiz grid2" data-answer="3">
 <p class="q">Which points touch the band?</p>
 <ol><li>All of them</li><li>The ones farthest from the center</li><li>Those that are corners of the smallest convex polygon containing all points</li><li>The leftmost and rightmost only</li></ol>
-<p class="explain">The band takes the shape of the <b>convex hull</b>. Press "⇥" on the widget to see it.</p>
+<p class="explain">The band takes the shape of the <b>convex hull</b>. "Farthest from the center" sounds right but fails: a point can be far from the center and still be inside.</p>
 </div>
 
 ---
@@ -62,38 +61,144 @@ Note:
 ## Today
 
 <ul class="agenda">
-<li><span class="t">0:07</span> Convexity & convex hulls</li>
-<li><span class="t">0:15</span> A slow but correct algorithm</li>
-<li><span class="t">0:20</span> <b>Pulse check 1</b></li>
-<li><span class="t">0:25</span> The sweep algorithm: upper + lower hull</li>
-<li><span class="t">0:40</span> Gift wrapping · lower bound</li>
-<li><span class="t">0:52</span> <b>Pulse check 2</b></li>
-<li><span class="t">0:57</span> Polytopes: hulls in 3-D</li>
-<li><span class="t">1:07</span> Duality & line arrangements</li>
-<li><span class="t">1:25</span> <b>Pulse check 3</b></li>
+<li><span class="t">0:07</span> Why hulls? Convexity and definitions</li>
+<li><span class="t">0:17</span> The problem · a slow algorithm · <b>Pulse check 1</b></li>
+<li><span class="t">0:27</span> Jarvis march (gift wrapping)</li>
+<li><span class="t">0:40</span> Graham scan</li>
+<li><span class="t">0:55</span> Monotone chain · lower bound · <b>Pulse check 2</b></li>
+<li><span class="t">1:07</span> Polytopes: hulls in 3-D</li>
+<li><span class="t">1:12</span> Duality & line arrangements · <b>Pulse check 3</b></li>
 <li><span class="t">1:33</span> <b>Exit ticket</b></li>
 </ul>
 
 ---
 
-## Convexity
+## Why convex hulls?
+
+Wide applications in mathematics, statistics, combinatorial optimization, economics and geometric modeling.
 
 <div class="cols">
-<div>
-
-- A set S is **convex** if for any p, q ∈ S the whole segment pq ⊆ S.
-- A **convex combination** of x₁…x<sub>k</sub>: α₁x₁ + … + α<sub>k</sub>x<sub>k</sub> with αᵢ ≥ 0 and Σαᵢ = 1.
-- **CH(P)** = smallest convex set containing P = intersection of all convex sets containing P = all convex combinations of P.
-
+<div class="card">
+<h4>Robotics</h4>
+<svg viewBox="0 0 300 120" style="width:100%;max-height:130px">
+<polygon points="110,40 135,20 150,45 175,15 190,50 200,90 160,75 140,100 120,70" style="fill:var(--line);stroke:var(--muted);stroke-width:1.5"/>
+<polyline points="20,60 110,40 175,15 280,60" style="fill:none;stroke:var(--accent);stroke-width:3"/>
+<polyline points="20,60 140,100 200,90 280,60" style="fill:none;stroke:var(--hot);stroke-width:3;stroke-dasharray:6 4"/>
+<circle cx="20" cy="60" r="6" style="fill:var(--ink)"/><circle cx="280" cy="60" r="6" style="fill:var(--ink)"/>
+<text x="10" y="85" font-size="14" style="fill:var(--ink)">s</text><text x="275" y="85" font-size="14" style="fill:var(--ink)">t</text>
+</svg>
+<p>The shortest path from s to t around an obstacle is the straight line, or one of the two chains of the obstacle's <b>hull</b>.</p>
 </div>
 <div class="card">
-<h4>For a finite set P</h4>
-<p>CH(P) is a convex polygon whose vertices are points of P. Output: its vertices <b>in clockwise order</b>.</p>
+<h4>Bounding volumes & shape</h4>
+<p><b>Minimum bounding box</b> of a molecule or a 3-D model: one of its sides is flush with a hull edge.</p>
+<p><b>Collision detection</b>: test cheap convex hulls first. <b>Shape analysis</b>: compare objects (vases, cups…) by their hulls and "concavities". <b>Statistics</b>: hull peeling to find outliers. <b>Diameter</b>: the farthest pair is always two hull vertices.</p>
 </div>
 </div>
 
 Note:
-⏱ 0:07–0:12. Applications: collision detection (hull as a bounding volume), shortest path around an obstacle (it follows the hull), farthest pair (diameter is between two hull vertices), statistics (convex hull peeling, outlier detection), robotics.
+⏱ 0:07–0:10. From your motivation slides (robotics, minimum bounding box, shape analysis).
+
+---
+
+## Concave vs. convex
+
+<div class="cols">
+<div style="text-align:center">
+<svg viewBox="0 0 260 200" style="width:80%;max-height:220px">
+<polygon points="40,150 70,60 110,80 160,30 200,35 190,110 140,130 160,185" style="fill:var(--hot-soft);stroke:var(--ink);stroke-width:2.5"/>
+<line x1="110" y1="80" x2="190" y2="110" style="stroke:var(--bad);stroke-width:2;stroke-dasharray:5 4"/>
+<line x1="70" y1="60" x2="160" y2="30" style="stroke:var(--bad);stroke-width:2;stroke-dasharray:5 4"/>
+</svg>
+<p><b>Concave polygon</b>: some segment between two of its points leaves the polygon.</p>
+</div>
+<div style="text-align:center">
+<svg viewBox="0 0 260 200" style="width:80%;max-height:220px">
+<polygon points="40,100 85,30 175,30 220,100 175,170 85,170" style="fill:var(--accent-soft);stroke:var(--ink);stroke-width:2.5"/>
+<line x1="60" y1="110" x2="190" y2="60" style="stroke:var(--ok);stroke-width:2;stroke-dasharray:5 4"/>
+<line x1="100" y1="40" x2="150" y2="160" style="stroke:var(--ok);stroke-width:2;stroke-dasharray:5 4"/>
+</svg>
+<p><b>Convex polygon</b>: every segment between two of its points stays inside. Every interior angle &lt; 180°.</p>
+</div>
+</div>
+
+Note:
+⏱ 0:10–0:12. Your concave / convex polygon slides. Ask for an everyday example of each (a star vs. a stop sign).
+
+---
+
+## Convexity, segments, convex combinations
+
+<div class="cols">
+<div>
+
+- S is **convex** if x ∈ S and y ∈ S imply that the whole **segment xy** ⊆ S.
+- The segment xy = all points **αx + βy** with α, β ≥ 0 and α + β = 1. <!-- .element: class="fragment" -->
+  - α = 1, β = 0 → x · α = 0, β = 1 → y · α = β = ½ → midpoint
+  - x = (1, 0), y = (4, 0): α = β = ½ gives (2.5, 0).
+- **Convex combination** of x₁…x<sub>k</sub>: α₁x₁ + … + α<sub>k</sub>x<sub>k</sub>, αᵢ ≥ 0, Σαᵢ = 1. <!-- .element: class="fragment" -->
+
+</div>
+<div class="card fragment">
+<h4>All convex combinations of…</h4>
+<svg viewBox="0 0 300 110" style="width:100%;max-height:120px">
+<line x1="15" y1="80" x2="85" y2="30" style="stroke:var(--accent);stroke-width:4"/>
+<polygon points="110,90 160,20 200,90" style="fill:var(--accent-soft);stroke:var(--accent);stroke-width:2.5"/>
+<polygon points="225,95 260,15 290,80" style="fill:var(--accent-soft);stroke:var(--accent);stroke-width:2.5"/>
+<line x1="225" y1="95" x2="270" y2="70" style="stroke:var(--accent);stroke-width:1.5;stroke-dasharray:4 3"/>
+<line x1="260" y1="15" x2="270" y2="70" style="stroke:var(--accent);stroke-width:1.5;stroke-dasharray:4 3"/>
+<line x1="290" y1="80" x2="270" y2="70" style="stroke:var(--accent);stroke-width:1.5;stroke-dasharray:4 3"/>
+</svg>
+<p class="small">2 points → a segment · 3 points → a triangle · 4 points in 3-D → a tetrahedron.</p>
+</div>
+</div>
+
+Note:
+⏱ 0:12–0:15. Your slides "Convexity", "Segment" and "Convex combination". The α's are like weights of a center of mass: all weights non-negative → you can never leave the shape.
+
+---
+
+## The convex hull: three equivalent definitions
+
+<div class="cols">
+<div>
+
+**CH(S)**, also written conv S, is:
+
+1. the set of **all convex combinations** of points of S;
+2. the **intersection of all convex sets** that contain S; <!-- .element: class="fragment" -->
+3. for a finite S in the plane: the **smallest convex polygon** P that encloses S — there is no other convex polygon P′ with S ⊆ P′ ⊂ P. <!-- .element: class="fragment" -->
+
+</div>
+<div class="card fragment">
+<h4>Intuition</h4>
+<p>Among polygons that enclose the points, the hull's vertices <b>maximize the area while minimizing the perimeter</b> — the rubber band is as tight as possible.</p>
+<p class="small muted">Its vertices are always points of S (the <b>extreme points</b>).</p>
+</div>
+</div>
+
+Note:
+⏱ 0:15–0:17. Your slides 12–14.
+
+---
+
+## The problem
+
+Given a finite set S of n points in the plane, construct the **boundary** of CH(S). Four possible outputs:
+
+1. all the points **on** the hull, in arbitrary order;
+2. the **extreme points** (corners), in arbitrary order;
+3. all the points on the hull, in **boundary order**;
+4. the extreme points, in **boundary order** ← the usual one (clockwise or counter-clockwise).
+
+<div class="cols3 small fragment">
+<div class="card"><h4>1970s</h4><p>Gift wrapping / Jarvis march (1970, 1973) · Graham scan (1972) · Quickhull (1977) · Divide & conquer (Preparata–Hong 1977)</p></div>
+<div class="card"><h4>1979–1986</h4><p>Monotone chain (Andrew 1979) · Incremental (1984) · Marriage before conquest (Kirkpatrick–Seidel 1986)</p></div>
+<div class="card"><h4>1996</h4><p>Chan's algorithm: <b>O(n log h)</b> — optimal in terms of n and the output size h</p></div>
+</div>
+
+Note:
+⏱ 0:17–0:20. Your slides "The problem" and "Existing algorithms". Outputs 1 vs 2 differ only with collinear points on the boundary — a degenerate case we must always decide how to handle.
 
 ---
 
@@ -116,7 +221,7 @@ SlowConvexHull(P):
 </div>
 
 Note:
-⏱ 0:12–0:20. Orientation test from session 4.1 again. Degeneracy: if r is ON pq we must decide by whether r lies on the segment.
+⏱ 0:20–0:24. Orientation test from session 4.1 again. Degeneracy: if r is ON pq we must decide by whether r lies on the segment.
 
 ---
 
@@ -128,46 +233,184 @@ Note:
 </div>
 
 Note:
-⏱ 0:20–0:25.
-
+⏱ 0:24–0:27.
 
 --
 
 <!-- .slide: class="checkpoint" -->
 <div class="quiz" data-answer="4">
-<p class="q">The leftmost point of P (smallest x, unique)…</p>
-<ol><li>may be inside the hull</li><li>is never a hull vertex</li><li>is a hull vertex only if it's also the lowest</li><li>is always a hull vertex</li></ol>
-<p class="explain">No convex combination of other points can have a smaller x. Every algorithm today starts from an extreme point like this.</p>
+<p class="q">The lowest point of P (smallest y, unique)…</p>
+<ol><li>may be inside the hull</li><li>is never a hull vertex</li><li>is a hull vertex only if it's also the leftmost</li><li>is always a hull vertex</li></ol>
+<p class="explain">No convex combination of other points can have a smaller y. Both Jarvis and Graham start from it.</p>
 </div>
 
 ---
 
-## The sweep: upper hull, then lower hull
+<!-- .slide: class="divider" -->
+## Jarvis march
 
-1. **Sort** points by x.
-2. Upper hull: go left → right, appending points. While the **last three do not make a right turn**, delete the middle one. <!-- .element: class="fragment" -->
-3. Lower hull: same, right → left. <!-- .element: class="fragment" -->
-4. Concatenate. <!-- .element: class="fragment" -->
-
-<p class="fragment small muted">de Berg's ConvexHull — also known as Andrew's monotone chain (1979), a variant of Graham's scan (1972).</p>
-
-Note:
-⏱ 0:25–0:28.
+Gift wrapping · R. A. Jarvis, 1973
 
 ---
 
-## Watch it (click to add points)
+## Gift wrapping
 
-<div class="w" data-widget="hull" data-algo="andrew" data-n="14" data-h="300"></div>
+<div class="cols">
+<div>
+
+**Idea:** wrap a gift — keep the paper in contact and go around, surface by surface, until you are back at the start.
+
+- Start at an extreme point (the **lowest**).
+- Next point = the one with the **smallest counter-clockwise angle** w.r.t. the previous edge (the horizontal line at the start). <!-- .element: class="fragment" -->
+- Compare angles cheaply with the **orientation test**. <!-- .element: class="fragment" -->
+
+</div>
+<div class="card">
+<h4>Jarvis march</h4>
+<p>In 2-D the algorithm is known as Jarvis march, after R. A. Jarvis (1973). Also works in 3-D (Chand & Kapur, 1970), wrapping facet by facet.</p>
+<p><b>O(nh)</b>: n points, h hull vertices.</p>
+</div>
+</div>
 
 Note:
-⏱ 0:28–0:36. Step slowly through the first few deletions: red triangle = left turn → the middle point (red ring) is deleted, possibly several times in a row ("backtracking" of the chain). Then play. Click "Clear" and build a degenerate case: several points on a vertical line, or collinear points on the hull.
+⏱ 0:27–0:30. Your slides 18–20.
 
 ---
 
-## Why O(n log n)?
+## Jarvis march on your example
 
-```cpp [1-2|4-9|10-11]
+<div class="w" data-widget="hullclassic" data-algo="jarvis" data-h="310"></div>
+
+Note:
+⏱ 0:30–0:37. Same 13 points as your slides. Each hull vertex takes two frames: (1) dotted rays to ALL other points — "to find the smallest counter-clockwise angle we need to check all of the angles with all the points"; (2) the winner with the red arc measured from the dashed blue reference (horizontal at p0, then the extension of the last edge). Hull: p0 → p1 → p3 → p10 → p12 → p0. Count the checks at the end: about n·h. Then "Random points" to try other sets.
+
+---
+
+## Jarvis: pseudocode and cost
+
+<div class="cols">
+<div>
+
+```text
+JarvisMarch(P):
+    q1 = lowest point of P (ties: leftmost)
+    q2 = point with the smallest angle to the
+         horizontal line through q1
+    i = 2
+    repeat
+        i = i + 1
+        qi = point with the smallest angle to
+             the line through q(i−2) and q(i−1)
+    until qi = q1
+```
+
+</div>
+<div>
+
+```cpp
+// angles without trigonometry: orientation
+int cur = lowest, start = lowest;
+do {
+    hull.push_back(cur);
+    int nxt = (cur + 1) % n;
+    for (int r = 0; r < n; r++)
+        if (orient(P[cur], P[nxt], P[r]) < 0)
+            nxt = r;    // r right of cur→nxt: better
+    cur = nxt;
+} while (cur != start);
+```
+
+<p class="small"><b>O(n)</b> per hull vertex → <b>O(nh)</b>. Output-sensitive: great if h is small, O(n²) if all points are on the hull.</p>
+
+</div>
+</div>
+
+Note:
+⏱ 0:37–0:40. Your pseudocode slide. The C++ loop never computes an angle: "r is to the right of cur→nxt" means r has a smaller counter-clockwise turn. Collinear points need a tie-break (keep the farthest).
+
+---
+
+<!-- .slide: class="divider" -->
+## Graham scan
+
+R. Graham, 1972
+
+---
+
+## Graham scan: the idea
+
+<div class="cols">
+<div>
+
+1. Find the **lowest** point p0.
+2. **Sort** the other points by the angle they make with p0, counter-clockwise. <!-- .element: class="fragment" -->
+3. Connect them in that order: a polygon results — usually **not** convex. <!-- .element: class="fragment" -->
+4. Now "wrap" that polygon with a convex one: walk it with a **stack**, and whenever the last three points make a **right turn**, the middle one is a dent → pop it. <!-- .element: class="fragment" -->
+
+</div>
+<div class="card fragment">
+<h4>Left or right?</h4>
+<p>orient(a, b, c) &gt; 0 → <span class="ok">left turn</span>: keep b.</p>
+<p>orient(a, b, c) ≤ 0 → <span class="bad">right turn</span> (or straight): b is inside, pop it — maybe several times in a row.</p>
+</div>
+</div>
+
+Note:
+⏱ 0:40–0:43. Your "General idea" slide.
+
+---
+
+## Graham scan on your example
+
+<div class="w" data-widget="hullclassic" data-algo="graham" data-h="310"></div>
+
+Note:
+⏱ 0:43–0:52. Same p0…p12: the labels ARE the angular order. First three frames: p0, rays, the star-shaped polygon. Then every turn test: green dashed = left turn (push), red dashed = right turn (pop the middle point). Ask before each step: "left or right?". Watch the double pop near p7–p9. Final hull p0 → p1 → p3 → p10 → p12, the same as Jarvis.
+
+---
+
+## Graham: efficiency
+
+<div class="cols">
+<div>
+
+| step | cost |
+|---|---|
+| 1. find the lowest point | O(n) |
+| 2. compute the angles | O(n) |
+| 3. sort by angle | **O(n log n)** |
+| 4. scan with the stack | O(n) |
+| 5. output | O(1)… O(h) |
+
+</div>
+<div>
+
+- Each point is **pushed once** and **popped at most once**: every iteration of the scan either eliminates a point (moving partially backward) or advances → at most **2n** iterations.
+- Total: **O(n log n)**, dominated by the sort. <!-- .element: class="fragment" -->
+- And that is optimal: otherwise we could sort faster than n log n (in a moment). <!-- .element: class="fragment" -->
+
+</div>
+</div>
+
+Note:
+⏱ 0:52–0:55. Your "Efficiency" slides. Amortized analysis, exactly like the KMP pointer argument in Unit 2.
+
+---
+
+## A variant without angles: monotone chain
+
+Sort by **x** instead of by angle; build the **upper** hull left → right and the **lower** hull right → left with the same stack rule (Andrew 1979 · de Berg ch. 1).
+
+<div class="w" data-widget="hull" data-algo="andrew" data-n="14" data-h="250"></div>
+
+Note:
+⏱ 0:55–0:59. Same stack and turn test as Graham, but sorting by x avoids angles (atan2) and their precision problems — the version most people code. Click "Clear" and add your own points; try collinear points. The code is on the next vertical slide (↓).
+
+--
+
+## Monotone chain in C++
+
+```cpp [1-2|4-7|8-11]
 // points sorted by x (then y); returns hull in counter-clockwise order
 vector<Pt> hull(vector<Pt> P) {
     int n = P.size(), k = 0;  vector<Pt> H(2 * n);
@@ -183,19 +426,7 @@ vector<Pt> hull(vector<Pt> P) {
 }
 ```
 
-<p class="small">Sorting O(n log n). Each point is pushed once and popped at most once → the loops are <b>O(n)</b> in total (amortized).</p>
-
-Note:
-⏱ 0:36–0:40. This version builds the lower hull first and returns counter-clockwise order; `<= 0` discards collinear points. de Berg Theorem 1.1.
-
----
-
-## Gift wrapping (Jarvis march, 1973)
-
-<div class="w" data-widget="hull" data-algo="jarvis" data-n="14" data-h="290"></div>
-
-Note:
-⏱ 0:40–0:47. From the current hull vertex, find the point such that all others are to its left: one full scan (n tests) per hull vertex → O(n·h). Output-sensitive like last session's sweep: excellent when h is small (h = O(log n) beats n log n), terrible when all points are on the hull (O(n²)).
+<p class="small">Sorting O(n log n); each point pushed once and popped at most once → the loops are O(n). <code>&lt;= 0</code> discards collinear points.</p>
 
 ---
 
@@ -210,35 +441,65 @@ Note:
 <p class="fragment">So a hull algorithm faster than n log n would sort faster than n log n → <b>Ω(n log n)</b>.</p>
 
 </div>
+<div>
+<div class="card fragment">
+<h4>Divide & conquer, too</h4>
+<p>Split by the median x, build both hulls recursively, merge them with the upper and lower common tangents in O(n): T(n) = 2T(n/2) + O(n) = <b>O(n log n)</b>.</p>
+</div>
 <div class="card fragment">
 <h4>Output-sensitive optimum</h4>
-<p>Kirkpatrick–Seidel (1986, "marriage before conquest") and Chan (1996): <b>O(n log h)</b>.</p>
+<p>Kirkpatrick–Seidel (1986) and Chan (1996): <b>O(n log h)</b>.</p>
+</div>
 </div>
 </div>
 
 Note:
-⏱ 0:47–0:52. Remind the reduction idea from Unit 1: "if I could solve B fast, I could solve A fast".
+⏱ 0:59–1:02. Remind the reduction idea from Unit 1: "if I could solve B fast, I could solve A fast". Divide & conquer from your last slide.
+
+---
+
+## Jarvis or Graham?
+
+| | Jarvis march | Graham scan |
+|---|---|---|
+| idea | wrap: next point = smallest turn | sort by angle, then remove dents |
+| time | **O(nh)** | **O(n log n)** |
+| best when | few hull points (h ≪ log n) | large sets, many hull points |
+| worst case | O(n²) (all points on the hull) | O(n log n) always |
+| intuition | very easy to visualize | needs the stack argument |
+
+<p class="small">Jarvis is more intuitive; Graham is typically preferred for large data sets.</p>
+
+Note:
+⏱ 1:02–1:03. Your "Final comments" slide.
 
 ---
 
 <!-- .slide: class="checkpoint" -->
 <div class="quiz" data-answer="3">
 <p class="q">10⁶ points, only 8 of them on the hull. Which is fastest?</p>
-<ol><li>Slow hull: O(n³)</li><li>Sweep: O(n log n)</li><li>Gift wrapping: O(nh)</li><li>All the same</li></ol>
-<p class="explain">n·h = 8·10⁶ vs n log n ≈ 2·10⁷. With h = n (points on a circle) gift wrapping degrades to n².</p>
+<ol><li>Slow hull: O(n³)</li><li>Graham: O(n log n)</li><li>Jarvis: O(nh)</li><li>All the same</li></ol>
+<p class="explain">n·h = 8·10⁶ vs n log n ≈ 2·10⁷. With h = n (points on a circle) Jarvis degrades to n².</p>
 </div>
 
 Note:
-⏱ 0:52–0:57.
-
+⏱ 1:03–1:07.
 
 --
 
 <!-- .slide: class="checkpoint" -->
 <div class="quiz" data-answer="1">
-<p class="q">In the sweep, the last three points make a <b>left turn</b> while building the upper hull. What happens?</p>
-<ol><li>The middle point is deleted, and the test repeats</li><li>The last point is deleted</li><li>The algorithm restarts</li><li>Nothing: left turns are allowed</li></ol>
-<p class="explain">The upper hull must turn right at every vertex when walked left to right.</p>
+<p class="q">In Graham's scan, the top two stack points and the new point make a <b>right turn</b>. What happens?</p>
+<ol><li>The top of the stack is popped, and the test repeats with the new top two</li><li>The new point is discarded</li><li>The algorithm restarts from p0</li><li>Nothing: right turns are allowed</li></ol>
+<p class="explain">Walking counter-clockwise, the hull turns left at every vertex: a right turn reveals a dent.</p>
+</div>
+
+--
+
+<!-- .slide: class="checkpoint" -->
+<div class="predict" data-answer="12" data-tol="0">
+<p class="q">In Graham's scan with n points, how many push + pop operations can there be at most? Answer for n = 6.</p>
+<p class="explain">Each point is pushed once (n) and popped at most once (≤ n) → ≤ 2n = <b>12</b>.</p>
 </div>
 
 ---
@@ -254,7 +515,7 @@ The convex hull of points in ℝ³ is a **convex polytope**: vertices, edges and
 </div>
 
 Note:
-⏱ 0:57–1:03. In d dimensions the hull can have Θ(n^⌊d/2⌋) facets (upper bound theorem) — the curse of dimensionality. Applications: 3-D collision detection, mesh generation; and next sessions: the Delaunay triangulation is the projection of a 3-D lower hull ("lifting map").
+⏱ 1:07–1:10. In d dimensions the hull can have Θ(n^⌊d/2⌋) facets (upper bound theorem) — the curse of dimensionality. Applications: 3-D collision detection, mesh generation; and next sessions: the Delaunay triangulation is the projection of a 3-D lower hull ("lifting map").
 
 ---
 
@@ -265,7 +526,7 @@ Note:
 </div>
 
 Note:
-⏱ 1:03–1:07. Then ask: and a triangulated polytope with 8 vertices? (2n − 4 = 12 facets, 3n − 6 = 18 edges.)
+⏱ 1:10–1:12. Then ask: and a triangulated polytope with 8 vertices? (2n − 4 = 12 facets, 3n − 6 = 18 edges.)
 
 ---
 
@@ -278,7 +539,7 @@ $$p = (p_x, p_y) \quad\mapsto\quad p^\ast : y = p_x\ x - p_y \qquad \ell : y = m
 - **Order preserving**: p above ℓ ⇔ ℓ* above p*.
 
 Note:
-⏱ 1:07–1:10. de Berg ch. 8.2. Vertical lines have no dual (degeneracy, as usual: rotate slightly).
+⏱ 1:12–1:15. de Berg ch. 8.2. Vertical lines have no dual (degeneracy, as usual: rotate slightly).
 
 ---
 
@@ -287,7 +548,7 @@ Note:
 <div class="w" data-widget="duality"></div>
 
 Note:
-⏱ 1:10–1:17. Drag p1 and p2: the dashed line through them in the primal becomes the point ℓ* where p1* and p2* cross. Press "Make 3 collinear": three lines through ONE point (orange). Add points: the dual lines form an **arrangement**; the counts match de Berg Thm 8.4 when the arrangement is simple.
+⏱ 1:15–1:21. Drag p1 and p2: the dashed line through them in the primal becomes the point ℓ* where p1* and p2* cross. Press "Make 3 collinear": three lines through ONE point (orange). Add points: the dual lines form an **arrangement**; the counts match de Berg Thm 8.4 when the arrangement is simple.
 
 ---
 
@@ -306,7 +567,7 @@ The **arrangement** A(L) of n lines: the subdivision of the plane into vertices,
 - **Any 3 collinear points?** ⇔ does A(P*) have a vertex where ≥ 3 lines meet? → O(n²) instead of O(n³).
 
 Note:
-⏱ 1:17–1:25. de Berg Thm 8.4 and Thm 8.6 (arrangement in O(n²)). Other uses: discrepancy (ray tracing sample quality), half-plane range counting, levels for k-th smallest problems. The 3SUM conjecture says you can't do much better than n² for collinearity.
+⏱ 1:21–1:27. de Berg Thm 8.4 and Thm 8.6 (arrangement in O(n²)). Other uses: discrepancy (ray tracing sample quality), half-plane range counting, levels for k-th smallest problems. The 3SUM conjecture says you can't do much better than n² for collinearity.
 
 ---
 
@@ -317,7 +578,7 @@ Note:
 </div>
 
 Note:
-⏱ 1:25–1:33.
+⏱ 1:27–1:33.
 
 
 --
@@ -348,7 +609,7 @@ Note:
 ## Takeaways
 
 - **CH(P)**: smallest convex set ⊇ P; vertices are extreme points of P.
-- Slow O(n³) → **sweep (upper + lower hull) O(n log n)** → gift wrapping **O(nh)**; lower bound Ω(n log n).
+- Slow O(n³) → **Jarvis march O(nh)** (smallest turn, output-sensitive) → **Graham scan O(n log n)** (sort by angle + stack; monotone chain sorts by x); lower bound Ω(n log n).
 - **Polytopes** in 3-D have linear size (≤ 3n − 6 edges, ≤ 2n − 4 facets); O(n log n) algorithms exist.
 - **Duality** turns points into lines; questions about points become questions about **arrangements** (n² complexity).
 
