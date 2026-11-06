@@ -561,6 +561,69 @@ Ver del minuto 1:20 al 3:00.
 
 ---
 
+## Duality by example
+
+Three points on the line ℓ: y = x + 1 → (1, 2), (2, 3), (3, 4).
+
+| point p | dual line p\*: y = p<sub>x</sub>·x − p<sub>y</sub> | value at x = 1 |
+|---|---|---|
+| (1, 2) | y = x − 2 | −1 |
+| (2, 3) | y = 2x − 3 | −1 |
+| (3, 4) | y = 3x − 4 | −1 |
+
+<p class="fragment">All three dual lines pass through <b>(1, −1)</b> — and ℓ* = (m, −b) = (1, −1). <b>Collinear points ↔ concurrent lines.</b></p>
+
+<div class="card fragment">
+<h4>Why "above" is preserved</h4>
+<p>p above ℓ means p<sub>y</sub> &gt; m·p<sub>x</sub> + b. ℓ* above p* means −b &gt; p<sub>x</sub>·m − p<sub>y</sub>. Rearrange: it is the same inequality.</p>
+</div>
+
+Note:
+Work the table on the board first, then reveal. Intuition: the dual of a point ON the parabola y = x²/2 is the tangent line at that point (point (a, a²/2) → y = a·x − a²/2), so duality is a "polarity" with respect to that parabola.
+
+---
+
+## Why bother? A translation table
+
+| primal: points | dual: lines |
+|---|---|
+| the line through 2 points | the crossing point of 2 lines |
+| 3 collinear points | 3 concurrent lines |
+| point p above line ℓ | point ℓ\* above line p\* |
+| **upper hull** of P | **lower envelope** of the lines P\* |
+| n points | an **arrangement** of n lines |
+
+<div class="card fragment">
+<h4>The payoff</h4>
+<p>A question that is awkward in one world can be easy in the other. "Are 3 of these points collinear?" becomes "does some vertex of the arrangement have 3 lines through it?" → <b>O(n²)</b> instead of checking all triples in O(n³).</p>
+</div>
+
+Note:
+Upper hull ↔ lower envelope: p is on the upper hull iff some line through p leaves all other points below it; in the dual, that line is a point on p* lying below every other dual line, i.e., p* appears on the lower envelope. The hull vertices appear in reverse order (increasing x in the primal = increasing slope in the dual). Other uses: half-plane range counting, minimum-area triangle, ham-sandwich cuts, discrepancy in ray tracing, 2-D linear programming.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="2">
+<p class="q">The points (0, 1), (2, 5) and (4, 9) lie on the line y = 2x + 1. Where do their three dual lines meet?</p>
+<ol><li>(2, 1)</li><li>(2, −1)</li><li>(1, 2)</li><li>They don't meet: they are parallel</li></ol>
+<p class="explain">ℓ* = (m, −b) = (2, −1). Check: y = −1, y = 2x − 5 and y = 4x − 9 all give −1 at x = 2.</p>
+</div>
+
+--
+
+<!-- .slide: class="checkpoint" -->
+<div class="predict" data-answer="-3" data-tol="0">
+<p class="q">The dual of the line y = 2x + 3 is a point (m, −b). What is its y-coordinate?</p>
+<p class="explain">(m, −b) = (2, <b>−3</b>). And the dual of the point (2, −3) is the line y = 2x + 3 again: duality is its own inverse.</p>
+</div>
+
+Note:
+Two-minute pulse check right after the duality widget.
+
+---
+
+  
 ## Hyperplane arrangements
 
 The **arrangement** A(L) of n lines: the subdivision of the plane into vertices, edges and faces.
