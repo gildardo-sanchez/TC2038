@@ -416,7 +416,7 @@ Note:
 <div class="w" data-widget="vordc" data-n="12" data-h="350"></div>
 
 Note:
-⏱ 1:05–1:15. Your step-by-step sequence. (1) Where to start: p and q are the endpoints of the UPPER common tangent of the two convex hulls (dashed). A point very high ON THE CHAIN (red) is equidistant from p and q and closer to them than to any other site, so it is in the cell of p in Vor(S₁) and of q in Vor(S₂). Careful: a point high on the vertical dividing line is not enough — at a finite height it can lie in other cells (the nearest site far up is the highest one, which need not be p or q). (2) Walk down along the bisector of p and q. (3) When the walk hits an orange edge (of Vor(S₁)), we enter the cell of another left site: update p; when it hits a blue edge, update q. Go to 2. (4) Finally, delete the orange parts to the right of c and the blue parts to the left. Ask before each step: "will p or q change next?"
+⏱ 1:05–1:15. Your step-by-step sequence. (1) Find a point very high on the dividing line (red). (2) Find the cell of Vor(S₁) that contains it (site p) and the cell of Vor(S₂) (site q). (3) While in the cells of p and q, follow the bisector of p and q downward. (4) When it touches an orange edge (of Vor(S₁)) we enter the cell of another left site: update p (arrow); when it touches a blue edge, update q. Go to 3. Finally, remove the orange lines to the right of c and the blue lines to the left. Ask before each step: "will p or q change next?". Technical caveat (for the curious): "very high" must be high enough; in general the safe choice of p and q is the upper common tangent of the two convex hulls. The examples in this widget are generated so that both choices coincide.
 
 ---
 
