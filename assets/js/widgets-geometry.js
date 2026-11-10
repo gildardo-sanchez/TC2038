@@ -803,7 +803,7 @@
         S = randomPoints(n, W, H, seed, 70).sort((a, b) => a.x - b.x); compute();
         const inside = (v) => Math.abs(v.x) > 3000 || Math.abs(v.y) > 3000 || (v.x > 25 && v.x < W - 25 && v.y > 25 && v.y < TOP - 30);
         const T = { x: xm, y: TOP };
-        if (chain.length && chain.every((c) => inside(c.a) && inside(c.b)) && nearest(L, T) === chain[0].p && nearest(R, T) === chain[0].q) return;
+        if (chain.length && chain.every((c) => inside(c.a) && inside(c.b) && dist(c.a, c.b) > 35) && nearest(L, T) === chain[0].p && nearest(R, T) === chain[0].q) return;
       }
     }
     function build() {
@@ -815,9 +815,12 @@
       frames.push({ st: 3, k: 0, start: 1, msg: "1. Find a point very high on the dividing line (red)." });
       frames.push({ st: 3, k: 0, start: 2, msg: "2. Determine the cell of Vor(S₁) that contains it — site <b>p</b> — and the cell of Vor(S₂) that contains it — site <b>q</b>." });
       chain.forEach((c, k) => {
-        let why = "", prev = null;
-        if (k > 0) { const pc = chain[k - 1]; if (pc.p !== c.p) { why = `4. It touched an <span style="color:#f76707"><b>orange</b></span> edge (of Vor(S₁)) → update <b>p</b>. `; prev = { from: pc.p, to: c.p }; } else { why = `4. It touched a <span style="color:#4c6ef5"><b>blue</b></span> edge (of Vor(S₂)) → update <b>q</b>. `; prev = { from: pc.q, to: c.q }; } }
-        frames.push({ st: 3, k: k + 1, move: prev, msg: `${why}3. While in the cells of p and q, follow the bisector of p and q (piece ${k + 1} of ${chain.length}).` });
+        frames.push({ st: 3, k: k + 1, pq: k, msg: `3. While in the cells of p and q, follow their bisector downward (piece ${k + 1} of ${chain.length}).` });
+        if (k + 1 < chain.length) {
+          const nx = chain[k + 1], ends = [c.a, c.b], touch = ends.reduce((best, e) => (Math.min(dist(e, nx.a), dist(e, nx.b)) < Math.min(dist(best, nx.a), dist(best, nx.b)) ? e : best), ends[0]);
+          const pChange = nx.p !== c.p;
+          frames.push({ st: 3, k: k + 1, pq: k + 1, touch, move: pChange ? { from: c.p, to: nx.p } : { from: c.q, to: nx.q }, msg: pChange ? `4. The bisector touched an <span style="color:#f76707"><b>orange</b></span> edge (of Vor(S₁)): we enter the cell of another left site → <b>update p</b>. Go to 3.` : `4. The bisector touched a <span style="color:#4c6ef5"><b>blue</b></span> edge (of Vor(S₂)): we enter the cell of another right site → <b>update q</b>. Go to 3.` });
+        } else frames.push({ st: 3, k: k + 1, pq: k, msg: "This last piece goes down forever: no more edges to touch. The chain c is complete." });
       });
       frames.push({ st: 4, msg: `The chain c is complete (${chain.length} pieces, light blue). Now remove the lines of Vor(S₁) to the right of c and of Vor(S₂) to the left of c.` });
       frames.push({ st: 5, msg: "Vor(S). The merge walks each cell boundary once → O(n). So T(n) = 2T(n/2) + O(n) = <b>O(n log n)</b> (Shamos & Hoey, 1975)." });
@@ -839,14 +842,15 @@
       if (f.st === 5) VS.forEach((e) => ln(e, `stroke:${S[e.i].side !== S[e.j].side ? "#74c0fc" : S[e.i].side === "L" ? "#f76707" : "#4c6ef5"};stroke-width:3`));
       S.forEach((p) => d.dot(p, 8, `fill:${f.st === 5 ? "var(--ink)" : p.side === "L" ? "#f76707" : "#4c6ef5"}`));
       const T = { x: xm, y: TOP };
-      if (f.st === 3 && f.k <= 1) d.dot(T, 9, "fill:var(--bad);stroke:#fff;stroke-width:2");
+      if (f.st === 3 && (f.start || (f.k === 1 && !f.touch))) d.dot(T, 9, "fill:var(--bad);stroke:#fff;stroke-width:2");
       if (f.start === 2) { arrow(d, T, chain[0].p, "var(--ink)"); arrow(d, T, chain[0].q, "var(--ink)"); }
       if (f.move) arrow(d, f.move.from, f.move.to, "var(--ink)");
-      let cur = null; if (f.st === 3 && (f.start === 2 || f.k >= 1)) cur = chain[Math.max(0, f.k - 1)];
+      let cur = null; if (f.st === 3 && f.start === 2) cur = chain[0]; else if (f.st === 3 && f.pq != null) cur = chain[f.pq];
+      if (f.touch) d.circle(f.touch, 11, "fill:none;stroke:var(--ink);stroke-width:3");
       if (cur) { d.circle(cur.p, 15, "fill:none;stroke:var(--bad);stroke-width:3"); d.circle(cur.q, 15, "fill:none;stroke:var(--bad);stroke-width:3"); d.text(cur.p, "p", "fill:#f76707", 22, -30, -8); d.text(cur.q, "q", "fill:#4c6ef5", 22, 16, -8); }
     }
     gen(); build();
-    return { stepper };
+    return { stepper, dbg: () => ({ chain, S, xm, VL, VR }) };
   });
 
   /* =======================================================
