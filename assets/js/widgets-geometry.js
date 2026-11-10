@@ -675,18 +675,26 @@
      8. Voronoi diagram (interactive) + Delaunay dual + post office
      ======================================================= */
   register("voronoi", (host, dd) => {
-    const W = 900, H = 400;
+    const W = dd.points ? 520 : 900, H = dd.points ? 380 : 400;
     let seed = parseInt(dd.seed || "8", 10), sites = randomPoints(parseInt(dd.n || "9", 10), W, H, seed, 50);
+    // optional fixed sites on a grid: data-points="9,7;14,5;…" data-queries="9,3;14,10" (grid units, uniform scale)
+    const GS = 28, GX = 40, GY = 22, gridOn = !!dd.points;
+    const toW = (s) => { const [a, b] = s.split(",").map(Number); return { x: GX + a * GS, y: GY + b * GS, gx: a, gy: b }; };
+    if (gridOn) sites = dd.points.split(";").map(toW);
+    const queries = dd.queries ? dd.queries.split(";").map(toW) : [];
     let showDel = dd.delaunay === "1", showCircles = false, hoverP = null;
     const sv = mkSvg(W, H, "cursor:crosshair;overflow:hidden");
     const info = h("div", { class: "w-caption" });
     const bD = btn("Delaunay (dual)", () => { showDel = !showDel; bD.classList.toggle("on", showDel); draw(); });
     const bC = btn("Empty circles at vertices", () => { showCircles = !showCircles; bC.classList.toggle("on", showCircles); draw(); });
     bD.classList.toggle("on", showDel);
-    host.append(h("div", { class: "w-toolbar" }, btn("Random", () => { seed++; sites = randomPoints(sites.length, W, H, seed, 50); draw(); }), btn("Clear (click to add)", () => { sites = []; draw(); }), bD, bC), sv, info);
-    interact(sv, H, () => sites, draw, { W, add: (w) => { if (sites.length < 40) { sites.push(w); draw(); } }, hover: (w) => { hoverP = w; draw(); } });
+    let showQ = false;
+    const bQ = btn("Show the queries", () => { showQ = !showQ; bQ.classList.toggle("on", showQ); draw(); });
+    host.append(h("div", { class: "w-toolbar" }, ...(gridOn ? [] : [btn("Random", () => { seed++; sites = randomPoints(sites.length, W, H, seed, 50); draw(); }), btn("Clear (click to add)", () => { sites = []; draw(); })]), bD, bC, ...(queries.length ? [bQ] : [])), sv, info);
+    interact(sv, H, () => sites, draw, { W, add: (w) => { if (!gridOn && sites.length < 40) { sites.push(w); draw(); } }, hover: (w) => { hoverP = w; draw(); } });
     function draw() {
       sv.replaceChildren(); const d = D(sv, H);
+      if (gridOn) { for (let i = 0; i <= 16; i++) d.line({ x: GX + i * GS, y: GY }, { x: GX + i * GS, y: GY + 12 * GS }, "stroke:var(--line);stroke-width:1"); for (let j = 0; j <= 12; j++) d.line({ x: GX, y: GY + j * GS }, { x: GX + 16 * GS, y: GY + j * GS }, "stroke:var(--line);stroke-width:1"); for (let i = 0; i <= 16; i += 2) d.text({ x: GX + i * GS - 4, y: GY - 16 }, String(i), "fill:var(--muted)", 12); for (let j = 2; j <= 12; j += 2) d.text({ x: GX - 22, y: GY + j * GS - 4 }, String(j), "fill:var(--muted)", 12); }
       const cells = sites.length ? voronoi(sites) : [];
       cells.forEach((c, i) => d.poly(c.poly, `fill:${hue(i)};fill-opacity:.18;stroke:var(--accent);stroke-width:2.5`));
       if (showDel) cells.forEach((c, i) => c.nb.forEach((j) => { if (j > i) d.line(sites[i], sites[j], "stroke:var(--hot);stroke-width:2.5"); }));
@@ -707,12 +715,114 @@
         d.line(hoverP, sites[bi], "stroke:var(--hot);stroke-width:3");
         d.dot(hoverP, 6, "fill:var(--hot)");
       }
-      sites.forEach((s, i) => d.dot(s, 8, "fill:var(--ink)"));
+      sites.forEach((s, i) => { d.dot(s, 8, "fill:var(--ink)"); if (s.gx != null) d.text(s, `(${s.gx},${s.gy})`, "fill:var(--ink)", 13, 9, -8); });
+      if (showQ) queries.forEach((q) => { let bi = 0; sites.forEach((s, i) => { if (dist(s, q) < dist(sites[bi], q)) bi = i; }); d.line(q, sites[bi], "stroke:var(--hot);stroke-width:3;stroke-dasharray:6 4"); d.dot(q, 8, "fill:var(--hot)"); d.text(q, `(${q.gx},${q.gy})`, "fill:var(--hot)", 13, 9, 16); });
       const n = sites.length, ne = cells.reduce((a, c) => a + c.nb.size, 0) / 2;
       info.innerHTML = n ? `n = <b>${n}</b> sites · <b>${vcount}</b> Voronoi vertices (≤ 2n − 5 = ${Math.max(0, 2 * n - 5)}) · <b>${ne}</b> edges (≤ 3n − 6 = ${Math.max(0, 3 * n - 6)}). <span class="muted">Move the mouse: the circle around the cursor is empty — the nearest site is your "post office". Click to add sites, drag to move them.</span>` : "Click to add sites.";
     }
     draw();
     return { repaint: draw };
+  });
+
+  /* -------- Voronoi helpers with labelled edges (edge k of cell i lies on bisector(i, j); j = -1: frame) -------- */
+  function labelledCells(sites) {
+    return voronoi(sites).map((c, i) => {
+      const s = sites[i], E = [];
+      for (let k = 0; k < c.poly.length; k++) {
+        const a = c.poly[k], b = c.poly[(k + 1) % c.poly.length]; if (dist(a, b) < 1e-6) continue;
+        const m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, di = dist(m, s); let lab = -1;
+        sites.forEach((t2, j) => { if (j !== i && Math.abs(dist(m, t2) - di) < 1e-6 * Math.max(1, di)) lab = j; });
+        if (lab >= 0) E.push({ a, b, j: lab });
+      }
+      return { poly: c.poly, E };
+    });
+  }
+  function bisectorSeg(p, q) { const m = { x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 }, dx = q.x - p.x, dy = q.y - p.y, L = Math.hypot(dx, dy) || 1; return [{ x: m.x - dy / L * 3000, y: m.y + dx / L * 3000 }, { x: m.x + dy / L * 3000, y: m.y - dx / L * 3000 }]; }
+
+  /* =======================================================
+     8b. One Voronoi cell = intersection of half-planes (the naive algorithm)
+     ======================================================= */
+  register("vorcell", (host, dd) => {
+    const W = 900, H = 400;
+    let seed = parseInt(dd.seed || "5", 10), sites = randomPoints(parseInt(dd.n || "9", 10), W, H, seed, 60), red = 0;
+    const sv = mkSvg(W, H), stats = h("div", { class: "w-stats" }), stepper = Stepper(draw);
+    host.append(h("div", { class: "w-toolbar" }, btn("Another red site", () => { red = (red + 1) % sites.length; build(); }), btn("Random sites", () => { seed++; sites = randomPoints(sites.length, W, H, seed, 60); pickCentral(); build(); })), sv, stepper.bar, stepper.caption, stats);
+    function pickCentral() { const c = { x: W / 2, y: H / 2 }; red = 0; sites.forEach((s, i) => { if (dist(s, c) < dist(sites[red], c)) red = i; }); }
+    const area = (P) => Math.abs(P.reduce((a, p, i) => { const q = P[(i + 1) % P.length]; return a + p.x * q.y - q.x * p.y; }, 0)) / 2;
+    function build() {
+      const s = sites[red], others = sites.map((p, i) => i).filter((i) => i !== red).sort((a, b) => dist(sites[a], s) - dist(sites[b], s));
+      let poly = [{ x: 0, y: 0 }, { x: W, y: 0 }, { x: W, y: H }, { x: 0, y: H }];
+      const frames = [{ poly, msg: "Start: before looking at any other site, the red site's cell is the whole plane." }]; let useful = 0;
+      others.forEach((j, k) => {
+        const t2 = sites[j], nx = t2.x - s.x, ny = t2.y - s.y, c = (t2.x * t2.x + t2.y * t2.y - s.x * s.x - s.y * s.y) / 2;
+        const shade = clip([{ x: 0, y: 0 }, { x: W, y: 0 }, { x: W, y: H }, { x: 0, y: H }], s, t2, -nx, -ny, -c);
+        frames.push({ poly, j, shade, msg: `Site ${k + 1} of ${others.length}: the points closer to it than to red are on the other side of their <b>bisector</b> (gray half-plane). Remove them.` });
+        const np = clip(poly, s, t2, nx, ny, c); const changed = area(poly) - area(np) > 1;
+        if (changed) useful++;
+        poly = np;
+        frames.push({ poly, j, msg: changed ? `Cell = previous cell ∩ half-plane h(red, site ${k + 1}). <span class="ok">The cell shrank.</span>` : `This half-plane does not cut the cell: <span class="muted">this site is not a neighbor of red.</span>` });
+      });
+      frames.push({ poly, done: true, msg: `Done: V(red) is the intersection of ${others.length} half-planes → a <b>convex</b> polygon. Only ${useful} sites actually shaped it (its neighbors). With an O(n log n) half-plane intersection per cell: <b>O(n² log n)</b> for the whole diagram.` });
+      stepper.set(frames);
+    }
+    function draw(f) {
+      sv.replaceChildren(); const d = D(sv, H);
+      if (f.shade && f.shade.length) d.poly(f.shade, "fill:var(--muted);fill-opacity:.28");
+      d.poly(f.poly, "fill:var(--hot-soft);fill-opacity:.85;stroke:var(--hot);stroke-width:3");
+      if (f.j != null) { const t2 = sites[f.j], [a, b] = bisectorSeg(sites[red], t2); d.line(a, b, "stroke:var(--accent);stroke-width:2.5;stroke-dasharray:8 6"); d.line(sites[red], t2, "stroke:var(--muted);stroke-width:1.5;stroke-dasharray:3 4"); }
+      sites.forEach((p, i) => d.dot(p, i === red ? 10 : i === f.j ? 10 : 7, `fill:${i === red ? "var(--bad)" : i === f.j ? "#fab005" : "#4c6ef5"}`));
+      stats.replaceChildren(stat("n =", sites.length), stat("cell vertices:", f.poly.length));
+    }
+    pickCentral(); build();
+    return { stepper };
+  });
+
+  /* =======================================================
+     8c. Divide & conquer: merge Vor(S1) and Vor(S2) along the dividing chain
+     ======================================================= */
+  register("vordc", (host, dd) => {
+    const W = 900, H = 420;
+    let seed = parseInt(dd.seed || "11", 10), n = parseInt(dd.n || "12", 10), S = [];
+    const sv = mkSvg(W, H), stepper = Stepper(draw);
+    host.append(h("div", { class: "w-toolbar" }, btn("Random sites", () => { seed++; gen(); build(); })), sv, stepper.bar, stepper.caption);
+    let L = [], R = [], xm = 0, VL = [], VR = [], VS = [], chain = [];
+    function gen() { S = randomPoints(n, W, H, seed, 60).sort((a, b) => a.x - b.x); }
+    const segsOf = (sites, cells, filt) => { const out = []; cells.forEach((c, i) => c.E.forEach((e) => { if (e.j > i && (!filt || filt(i, e.j))) out.push({ a: e.a, b: e.b, i, j: e.j }); })); return out; };
+    function build() {
+      const h2 = Math.floor(S.length / 2); L = S.slice(0, h2); R = S.slice(h2); xm = (L[L.length - 1].x + R[0].x) / 2;
+      S.forEach((p, i) => (p.side = i < h2 ? "L" : "R"));
+      VL = segsOf(L, labelledCells(L)); VR = segsOf(R, labelledCells(R));
+      const cS = labelledCells(S); VS = segsOf(S, cS);
+      chain = VS.filter((e) => S[e.i].side !== S[e.j].side).map((e) => { const [l, r] = S[e.i].side === "L" ? [e.i, e.j] : [e.j, e.i]; return { a: e.a, b: e.b, p: S[l], q: S[r], my: (e.a.y + e.b.y) / 2 }; }).sort((u, v) => v.my - u.my);
+      const frames = [];
+      frames.push({ st: 0, msg: "Divide: sort by x and split S by a vertical line into S₁ (left) and S₂ (right), about n/2 sites each." });
+      frames.push({ st: 1, msg: "Conquer: recursively compute Vor(S₁) (orange)…" });
+      frames.push({ st: 2, msg: "…and Vor(S₂) (blue). Now combine them. Key lemma: there is a y-monotone polygonal chain c that separates the points closer to S₁ from those closer to S₂." });
+      frames.push({ st: 3, k: 0, top: true, msg: `Start very high on the dividing line: that point lies in the cell of <b>p</b> in Vor(S₁) and of <b>q</b> in Vor(S₂). The chain starts on the bisector of p and q.` });
+      chain.forEach((c, k) => {
+        let why = "";
+        if (k > 0) { const pc = chain[k - 1]; why = pc.p !== c.p ? `It hit an <span style="color:#f76707"><b>orange</b></span> edge of Vor(S₁) → <b>p changes</b>. ` : `It hit a <span style="color:#4c6ef5"><b>blue</b></span> edge of Vor(S₂) → <b>q changes</b>. `; }
+        frames.push({ st: 3, k: k + 1, msg: `${why}Walk down along the bisector of p and q (step ${k + 1} of ${chain.length}).` });
+      });
+      frames.push({ st: 4, msg: `The chain c is complete (${chain.length} edges, light blue). Now delete the parts of Vor(S₁) to the right of c and of Vor(S₂) to the left of c.` });
+      frames.push({ st: 5, msg: "Vor(S). The merge walks each cell boundary once → O(n). So T(n) = 2T(n/2) + O(n) = <b>O(n log n)</b> (Shamos & Hoey, 1975)." });
+      stepper.set(frames);
+    }
+    function draw(f) {
+      sv.replaceChildren(); const d = D(sv, H);
+      const ln = (e, st) => d.line(e.a, e.b, st);
+      if (f.st <= 4) d.line({ x: xm, y: -10 }, { x: xm, y: H + 10 }, "stroke:var(--muted);stroke-width:2;stroke-dasharray:7 6");
+      if (f.st >= 1 && f.st <= 4) VL.forEach((e) => ln(e, "stroke:#f76707;stroke-width:2.2"));
+      if (f.st >= 2 && f.st <= 4) VR.forEach((e) => ln(e, "stroke:#4c6ef5;stroke-width:2.2"));
+      if (f.st === 3 || f.st === 4) { const K = f.st === 4 ? chain.length : f.k; chain.slice(0, K).forEach((c, i) => ln(c, `stroke:#74c0fc;stroke-width:${i === K - 1 && f.st === 3 ? 7 : 5}`)); }
+      if (f.st === 5) VS.forEach((e) => ln(e, `stroke:${S[e.i].side !== S[e.j].side ? "#74c0fc" : S[e.i].side === "L" ? "#f76707" : "#4c6ef5"};stroke-width:3`));
+      let cur = null; if (f.st === 3) cur = chain[Math.max(0, f.k - 1)];
+      if (f.top && cur) { const ty = H - 12; d.dot({ x: xm, y: ty }, 9, "fill:var(--bad)"); d.line({ x: xm, y: ty }, cur.p, "stroke:var(--ink);stroke-width:1.5;stroke-dasharray:4 4"); d.line({ x: xm, y: ty }, cur.q, "stroke:var(--ink);stroke-width:1.5;stroke-dasharray:4 4"); }
+      S.forEach((p) => d.dot(p, 8, `fill:${f.st === 0 || f.st === 5 ? (f.st === 5 ? "var(--ink)" : p.side === "L" ? "#f76707" : "#4c6ef5") : p.side === "L" ? "#f76707" : "#4c6ef5"}`));
+      if (cur) { d.circle(cur.p, 15, "fill:none;stroke:var(--bad);stroke-width:3"); d.circle(cur.q, 15, "fill:none;stroke:var(--bad);stroke-width:3"); d.text(cur.p, "p", "fill:var(--bad)", 20, -26, -10); d.text(cur.q, "q", "fill:var(--bad)", 20, 14, -10); }
+    }
+    gen(); build();
+    return { stepper };
   });
 
   /* =======================================================

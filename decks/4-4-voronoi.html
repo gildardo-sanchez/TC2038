@@ -28,105 +28,248 @@
 
 # Voronoi diagrams
 
-### "Who is closest?" — and Fortune's beautiful sweep
+### "Who is closest?" — from intuition to an O(n log n) algorithm
 
-<p class="byline">Dr. Gildardo Sánchez Ante · Tecnológico de Monterrey<br><span class="tiny">de Berg et al., ch. 7 (and point location, ch. 6)</span></p>
+<p class="byline">Dr. Gildardo Sánchez Ante · Tecnológico de Monterrey<br><span class="tiny">de Berg et al., ch. 7 · Shamos & Hoey (1975) · Preparata & Shamos, ch. 5</span></p>
 
 Note:
-⏱ 0:00–0:02. Syllabus 4.2 (Voronoi) and 4.3 (geometric search: the post-office problem). Story arc: definition → properties → naive algorithm → why a simple sweep fails → the beach line.
+⏱ 0:00–0:02. Syllabus 4.2 (Voronoi) and 4.3 (geometric search). Computational geometry is new for this group, so today goes slowly: a story, intuitive definitions, pictures, properties — and only then algorithms and their analysis. Story arc: nearest store → regions → bisectors and half-planes → properties → naive algorithm → divide and conquer.
 
 ---
 
 <!-- .slide: class="activity" -->
 ## Warm-up: who bakes my pizza?
 
-A pizza chain has 800 stores. You call the central number. **Which store gets your order?**
+We are starving and order a pizza. We call the chain's **800 number**. The chain has **802 stores**.
 
-<div class="w" data-widget="voronoi" data-n="10" data-h="260"></div>
+- Which store gets our order? At random?
+- What rule would **you** use?
+
+<div class="timer" data-seconds="120"></div>
 
 Note:
-⏱ 0:02–0:07. Your old slides' Domino's example. Move the mouse: the circle around the cursor never contains a store — the nearest store is on its boundary. The "Voronoi assignment model" also appears in archaeology, biology (cell growth), astronomy, and Snow's 1854 cholera map.
+⏱ 0:02–0:05. Your Domino's motivation. Let them answer: "the nearest one". Then ask: "how does the call center decide which one is nearest, for every possible address, really fast?" That is today's question. Don't show any diagram yet.
 
+---
+
+## The problem
+
+<div class="cols">
+<div>
+
+Given a set S of n points (**sites**: the stores) and a new point q (our house), **find the site closest to q**.
+
+- One query: compare with all n sites → O(n). <!-- .element: class="fragment" -->
+- Millions of calls per day? Better: divide the city **once** into regions, one per store, and assign each address to the region it falls in. <!-- .element: class="fragment" -->
+
+</div>
+<div class="card fragment">
+<h4>Voronoi assignment model</h4>
+<p>Every point of the plane is assigned to its <b>nearest site</b>. The subdivision of the plane that this rule induces is the <b>Voronoi diagram</b> of the sites.</p>
+</div>
+</div>
+
+Note:
+⏱ 0:05–0:08. Your slides "Problem" and "Regions". This is the post-office problem (Knuth, 1973) — we come back to it at the end.
+
+---
+
+## See it: move the mouse
+
+<div class="w" data-widget="voronoi" data-n="10" data-h="300"></div>
+
+Note:
+⏱ 0:08–0:11. Each colored region = the addresses served by one store. Move the mouse: the orange segment goes to the nearest store, and the orange circle around the cursor never contains a store (it is "empty"). Ask: "what shape do the borders between regions have?" (straight segments!) and "why straight?" — next slides.
 
 --
 
 <!-- .slide: class="checkpoint" -->
 <div class="quiz grid2" data-answer="1">
-<p class="q">If every order goes to the nearest store, the regions are bounded by…</p>
-<ol><li>perpendicular bisectors of pairs of stores</li><li>circles around the stores</li><li>a square grid</li><li>roads</li></ol>
-<p class="explain">The border between two stores' regions is where you're equally far from both: their perpendicular bisector.</p>
+<p class="q">If every order goes to the nearest store, the border between two neighboring stores' regions is…</p>
+<ol><li>the perpendicular bisector of the two stores</li><li>a circle around one of the stores</li><li>a square grid line</li><li>a road</li></ol>
+<p class="explain">On the border you are equally far from both stores — and the points equidistant from two points form their perpendicular bisector.</p>
 </div>
+
+---
+
+## Georgy F. Voronoi (1868–1908)
+
+<div class="cols">
+<div>
+
+- Ukrainian–Russian mathematician; studied from 1889 at the University of Saint Petersburg, **student of Andrei Markov**.
+- Defined these diagrams in general dimension in 1908. <!-- .element: class="fragment" -->
+- The idea is older: Descartes (1644), Dirichlet (1850). That is why they are also called **Dirichlet tessellations** or **Thiessen polygons**. <!-- .element: class="fragment" -->
+
+</div>
+<div class="card fragment">
+<h4>The same idea, everywhere</h4>
+<p>John Snow's 1854 cholera map (the nearest water pump) · cell tissues and giraffe patterns · crystal growth · cellular-network coverage · meteorology (rain gauges) · robotics (paths far from obstacles) · nearest-neighbor classifiers in machine learning.</p>
+</div>
+</div>
+
+Note:
+⏱ 0:11–0:13. Your slide on Voronoi, plus a few examples to show it's not just pizza.
 
 ---
 
 ## Today
 
 <ul class="agenda">
-<li><span class="t">0:07</span> Definition: bisectors and half-planes</li>
-<li><span class="t">0:17</span> <b>Pulse check 1</b></li>
-<li><span class="t">0:21</span> Properties & complexity</li>
-<li><span class="t">0:35</span> <b>Pulse check 2</b></li>
-<li><span class="t">0:40</span> Computing it: naive, divide & conquer</li>
-<li><span class="t">0:48</span> Fortune's sweep: beach line, events</li>
-<li><span class="t">1:12</span> <b>Pulse check 3</b></li>
-<li><span class="t">1:17</span> Geometric search: the post-office problem</li>
-<li><span class="t">1:33</span> <b>Exit ticket</b></li>
+<li><span class="t">0:13</span> Two sites: bisectors and half-planes</li>
+<li><span class="t">0:20</span> Definition and vocabulary · <b>Pulse check 1</b></li>
+<li><span class="t">0:30</span> Properties: convex cells, special cases, size, empty circles</li>
+<li><span class="t">0:47</span> <b>Pulse check 2</b></li>
+<li><span class="t">0:52</span> Algorithm 1: one cell at a time (half-planes)</li>
+<li><span class="t">1:02</span> Algorithm 2: divide and conquer · <b>Pulse check 3</b></li>
+<li><span class="t">1:23</span> Applications · your turn</li>
+<li><span class="t">1:35</span> <b>Exit ticket</b></li>
 </ul>
 
 ---
 
-## Definition
-
-Sites P = {p₁, …, pₙ}. The **Voronoi cell** of pᵢ:
-
-$$\mathcal{V}(p_i) = \lbrace q : \operatorname{dist}(q,p_i) < \operatorname{dist}(q,p_j) \text{ for all } j \ne i \rbrace$$
+## Start with two sites
 
 <div class="cols">
-<div class="fragment">
+<div>
 
-The **bisector** of p and q splits the plane into two open half-planes; h(p, q) is the one containing p.
+- Distance in the plane: dist(p, q) = √((pₓ − qₓ)² + (p<sub>y</sub> − q<sub>y</sub>)²).
+- The **bisector** of p and q: the line perpendicular to segment pq through its midpoint. Its points are **equally far** from p and q. <!-- .element: class="fragment" -->
+- It splits the plane into two open **half-planes**: h(p, q) contains p, h(q, p) contains q. <!-- .element: class="fragment" -->
+- r ∈ h(p, q) ⇔ dist(r, p) &lt; dist(r, q). <!-- .element: class="fragment" -->
 
 </div>
-<div class="card fragment">
-<h4>Key observation</h4>
-<p>$\mathcal{V}(p_i) = \bigcap_{j \ne i} h(p_i, p_j)$</p>
-<p>An intersection of half-planes → a (possibly unbounded) <b>convex polygon</b> with ≤ n − 1 edges.</p>
+<div>
+<svg viewBox="0 0 320 220" style="width:100%;max-height:260px">
+<rect x="0" y="0" width="160" height="220" style="fill:#ffd8a8"/>
+<rect x="160" y="0" width="160" height="220" style="fill:#fff3bf"/>
+<line x1="160" y1="0" x2="160" y2="220" style="stroke:#222;stroke-width:3"/>
+<line x1="95" y1="120" x2="225" y2="120" style="stroke:#555;stroke-width:2;stroke-dasharray:6 5"/>
+<circle cx="95" cy="120" r="7" style="fill:#e03131"/><circle cx="225" cy="120" r="7" style="fill:#e03131"/>
+<text x="85" y="145" font-size="18" font-style="italic" style="fill:#222">p</text><text x="220" y="145" font-size="18" font-style="italic" style="fill:#222">q</text>
+<text x="30" y="40" font-size="17" style="fill:#222">h(p, q)</text><text x="200" y="40" font-size="17" style="fill:#222">h(q, p)</text>
+<text x="168" y="210" font-size="13" style="fill:#222">bisector</text>
+</svg>
+<p class="small" style="text-align:center">With two stores, the city splits in two halves.</p>
 </div>
 </div>
 
 Note:
-⏱ 0:07–0:13. Georgy Voronoy (1868–1908), student of Markov in St. Petersburg; Dirichlet (1850) and Descartes (1644) had used similar ideas.
+⏱ 0:13–0:17. Your slides "Single Voronoi cell" and "Two sites". Ask: "and with three stores?" (three bisectors that meet at ONE point: the circumcenter of the triangle). Build it on the next slide.
 
 ---
 
-## Build a diagram
+## Add sites one by one
 
-<div class="w" data-widget="voronoi" data-n="5" data-h="330"></div>
+<div class="w" data-widget="voronoi" data-n="5" data-h="320"></div>
 
 Note:
-⏱ 0:13–0:17. Click "Clear" and add sites one by one: 2 sites → one bisector; 3 sites → three bisectors meeting at one point (the circumcenter!). Put 4+ points on a line to show the parallel-lines case. Drag a site to see cells react.
+⏱ 0:17–0:20. Click "Clear (click to add)" and add sites one at a time. 2 sites → one bisector. 3 sites → three half-bisectors meeting at one point (circumcenter): our first Voronoi VERTEX. 4, 5, … sites: cells, edges, vertices. Drag a site and watch its neighbors react.
+
+---
+
+## Definition and vocabulary
+
+Sites P = {p₁, …, pₙ}, all distinct. The **Voronoi cell** of pᵢ is the set of points closer to pᵢ than to any other site:
+
+$$\mathcal{V}(p_i) = \lbrace q : \operatorname{dist}(q,p_i) < \operatorname{dist}(q,p_j) \text{ for all } j \ne i \rbrace$$
+
+<div class="cols3 small">
+<div class="card fragment"><h4>Cells</h4><p>n cells, one per site — every site has one (its own position is in it).</p></div>
+<div class="card fragment"><h4>Edges</h4><p>Pieces of bisectors: points equidistant from <b>2</b> sites. Segments or half-lines.</p></div>
+<div class="card fragment"><h4>Vertices</h4><p>Points equidistant from <b>3 or more</b> sites: where edges meet.</p></div>
+</div>
+
+<p class="fragment">The <b>Voronoi diagram</b> Vor(P) is the subdivision of the plane into these cells.</p>
+
+Note:
+⏱ 0:20–0:25. Your "Definition and basic properties" slide and "Input: point set / Output: Voronoi diagram". Ask: "why does every site have a cell?" (each site is strictly closer to itself than to any other site).
 
 ---
 
 <!-- .slide: class="checkpoint" -->
 <div class="quiz" data-answer="3">
-<p class="q">Why is every Voronoi cell convex?</p>
-<ol><li>Because sites are in general position</li><li>Because distances are positive</li><li>It is an intersection of half-planes, and half-planes are convex</li><li>It isn't always convex</li></ol>
-<p class="explain">Intersection of convex sets is convex.</p>
+<p class="q">A point q lies on a Voronoi edge between p₂ and p₅. Which statement is true?</p>
+<ol><li>q is closer to p₂ than to p₅</li><li>q is equidistant from all sites</li><li>q is equally far from p₂ and p₅, and every other site is farther</li><li>q is a site</li></ol>
+<p class="explain">Edges = points whose two nearest sites are tied.</p>
 </div>
 
 Note:
-⏱ 0:17–0:21.
-
+⏱ 0:25–0:30.
 
 --
 
 <!-- .slide: class="checkpoint" -->
 <div class="quiz" data-answer="2">
-<p class="q">All n sites lie on one line. The Voronoi diagram is…</p>
-<ol><li>a single point</li><li>n − 1 parallel lines</li><li>a star of n half-lines</li><li>empty</li></ol>
-<p class="explain">The only disconnected case (de Berg Thm 7.2). Otherwise the diagram is connected and its edges are segments or half-lines.</p>
+<p class="q">With 3 sites that are not collinear, the diagram has…</p>
+<ol><li>3 vertices and 3 edges</li><li>1 vertex and 3 half-line edges</li><li>no vertices</li><li>3 parallel lines</li></ol>
+<p class="explain">The three bisectors meet at the circumcenter of the triangle (equidistant from all three sites).</p>
 </div>
+
+---
+
+## Why are the cells convex?
+
+<div class="cols">
+<div>
+
+Being in the cell of p means beating **every** other site:
+
+$$\mathcal{V}(p_i) = \bigcap_{j \ne i} h(p_i, p_j)$$
+
+- Each half-plane is convex. <!-- .element: class="fragment" -->
+- The intersection of convex sets is convex. <!-- .element: class="fragment" -->
+- So every cell is a **convex polygon** — possibly **unbounded** — with at most n − 1 edges. <!-- .element: class="fragment" -->
+
+</div>
+<div class="card fragment">
+<h4>Unbounded cells</h4>
+<p>V(pᵢ) is unbounded ⇔ pᵢ is a vertex of the <b>convex hull</b> of P (last session!).</p>
+<p class="small muted">Intuition: walk far away in a direction where pᵢ is extreme; eventually pᵢ is the nearest site. An interior site always has some site farther out that wins.</p>
+</div>
+</div>
+
+Note:
+⏱ 0:30–0:35. Your slides "The half-plane is important here", "Voronoi cells" and "Unbounded Voronoi cells".
+
+---
+
+## Special cases
+
+<div class="cols3">
+<div class="card">
+<h4>All sites collinear</h4>
+<svg viewBox="0 0 220 120" style="width:100%;max-height:120px">
+<line x1="40" y1="5" x2="40" y2="115" style="stroke:var(--accent);stroke-width:2.5"/>
+<line x1="95" y1="5" x2="95" y2="115" style="stroke:var(--accent);stroke-width:2.5"/>
+<line x1="145" y1="5" x2="145" y2="115" style="stroke:var(--accent);stroke-width:2.5"/>
+<line x1="185" y1="5" x2="185" y2="115" style="stroke:var(--accent);stroke-width:2.5"/>
+<circle cx="15" cy="60" r="5" style="fill:var(--bad)"/><circle cx="65" cy="60" r="5" style="fill:var(--bad)"/><circle cx="125" cy="60" r="5" style="fill:var(--bad)"/><circle cx="165" cy="60" r="5" style="fill:var(--bad)"/><circle cx="205" cy="60" r="5" style="fill:var(--bad)"/>
+</svg>
+<p>n − 1 <b>parallel lines</b>. The only case where the diagram is <b>disconnected</b>.</p>
+</div>
+<div class="card">
+<h4>All sites on a circle</h4>
+<svg viewBox="0 0 220 120" style="width:100%;max-height:120px">
+<circle cx="110" cy="60" r="45" style="fill:none;stroke:var(--muted);stroke-dasharray:4 4"/>
+<line x1="110" y1="60" x2="110" y2="0" style="stroke:var(--accent);stroke-width:2.5"/>
+<line x1="110" y1="60" x2="200" y2="20" style="stroke:var(--accent);stroke-width:2.5"/>
+<line x1="110" y1="60" x2="190" y2="120" style="stroke:var(--accent);stroke-width:2.5"/>
+<line x1="110" y1="60" x2="30" y2="120" style="stroke:var(--accent);stroke-width:2.5"/>
+<line x1="110" y1="60" x2="20" y2="20" style="stroke:var(--accent);stroke-width:2.5"/>
+<circle cx="155" cy="60" r="5" style="fill:var(--bad)"/><circle cx="110" cy="105" r="5" style="fill:var(--bad)"/><circle cx="68" cy="75" r="5" style="fill:var(--bad)"/><circle cx="85" cy="23" r="5" style="fill:var(--bad)"/><circle cx="140" cy="26" r="5" style="fill:var(--bad)"/>
+</svg>
+<p><b>One vertex</b> (the center), n half-lines. A <b>degenerate</b> vertex: equidistant from n sites.</p>
+</div>
+<div class="card">
+<h4>Otherwise</h4>
+<p>The diagram is <b>connected</b>; its edges are <b>segments</b> or <b>half-lines</b> (de Berg Thm 7.2).</p>
+<p class="small muted">"General position": no 4 sites on a common circle → every vertex has degree exactly 3.</p>
+</div>
+</div>
+
+Note:
+⏱ 0:35–0:39. Your slides "Only case of disconnected VD", "Only one vertex" and "Not all sites collinear". Show the collinear case live: go back to the widget, Clear, and click 4–5 points on a horizontal line.
 
 ---
 
@@ -135,20 +278,21 @@ Note:
 <div class="cols">
 <div>
 
-Each cell can have up to n − 1 edges… is the total Θ(n²)?
+Each cell has at most n − 1 edges, and there are n cells… so is the diagram **quadratic**?
 
-<p class="fragment"><b>No — it's linear.</b> For n ≥ 3 (de Berg Thm 7.3):</p>
+<p class="fragment"><b>No — it is linear.</b> For n ≥ 3 sites (de Berg Thm 7.3):</p>
 <p class="fragment big">≤ 2n − 5 vertices · ≤ 3n − 6 edges</p>
+<p class="fragment small">On average a cell has fewer than 6 edges.</p>
 
 </div>
 <div class="card fragment">
 <h4>Proof idea</h4>
-<p>Add a vertex at infinity to close unbounded edges, apply Euler's formula (V − E + F = 2), and use that every vertex has degree ≥ 3: 2E ≥ 3V.</p>
+<p>Add one vertex "at infinity" where all half-lines end. Now Euler's formula applies (V − E + F = 2, session 4.3!), with F = n cells. Every vertex has degree ≥ 3, so 2E ≥ 3V. Combine both → the bounds.</p>
 </div>
 </div>
 
 Note:
-⏱ 0:21–0:25. Average cell has fewer than 6 edges. Ask: "Which sites have unbounded cells?" → answer on next slide.
+⏱ 0:39–0:42. Your "Complexity of Voronoi diagram" slides: first the naive quadratic bound, then the surprise. Only sketch the proof.
 
 ---
 
@@ -157,214 +301,224 @@ Note:
 <div class="cols">
 <div>
 
-C<sub>P</sub>(q): the largest circle centered at q with no site inside.
+For a point q, the **largest empty circle** C(q) is the biggest circle centered at q with **no site inside**.
 
-- q is a **Voronoi vertex** ⇔ C<sub>P</sub>(q) has **≥ 3 sites** on its boundary.
-- The bisector of pᵢ, pⱼ contains a **Voronoi edge** ⇔ some q on it has C<sub>P</sub>(q) with **exactly pᵢ, pⱼ** on its boundary.
-- 𝒱(pᵢ) is **unbounded** ⇔ pᵢ is on the **convex hull** of P.
+- q is a **Voronoi vertex** ⇔ C(q) has **3 or more** sites on its boundary.
+- The bisector of pᵢ and pⱼ contains a **Voronoi edge** ⇔ some q on it has **exactly** pᵢ and pⱼ on the boundary of C(q).
 
 </div>
 <div class="card">
 <h4>Application</h4>
-<p>Where to open a new store (or a new antenna) as far as possible from existing ones? At a <b>Voronoi vertex</b> (or on the boundary of the region): the center of the largest empty circle.</p>
+<p>Where should the chain open a new store, as far as possible from all existing ones? At a <b>Voronoi vertex</b> (or on the city's boundary): the center of the largest empty circle.</p>
 </div>
 </div>
 
 Note:
-⏱ 0:25–0:35. de Berg Thm 7.4. Go back two slides and turn on "Empty circles at vertices" to see them. Connection with session 4.3: unbounded cells ↔ hull vertices.
+⏱ 0:42–0:47. Your "greatest empty circle" slide (de Berg Thm 7.4). Go back to the "Add sites" widget and press "Empty circles at vertices".
 
 ---
 
 <!-- .slide: class="checkpoint" -->
 <div class="predict" data-answer="35" data-tol="0">
-<p class="q">At most how many Voronoi vertices for n = 20 sites?</p>
+<p class="q">At most how many Voronoi vertices can 20 sites have?</p>
 <p class="explain">2n − 5 = <b>35</b>; and at most 3n − 6 = 54 edges.</p>
 </div>
 
 Note:
-⏱ 0:35–0:40.
-
-
---
-
-<!-- .slide: class="checkpoint" -->
-<div class="quiz" data-answer="4">
-<p class="q">A Voronoi vertex is equidistant from…</p>
-<ol><li>all sites</li><li>exactly two sites</li><li>the nearest site and the convex hull</li><li>at least three sites, with no site closer</li></ol>
-<p class="explain">It's the center of an empty circle through ≥ 3 sites.</p>
-</div>
-
----
-
-## Computing Vor(P)
-
-<div class="cols3">
-<div class="card fragment"><h4>Naive</h4><p>Each cell = intersection of n − 1 half-planes in O(n log n).</p><p><b>O(n² log n)</b></p></div>
-<div class="card fragment"><h4>Divide & conquer</h4><p>Shamos & Hoey (1975): split by x, recurse, merge the two diagrams along a dividing chain in O(n).</p><p><b>O(n log n)</b></p></div>
-<div class="card fragment"><h4>Fortune's sweep</h4><p>Fortune (1987): a plane sweep with a twist. Simpler to implement.</p><p><b>O(n log n)</b> · optimal</p></div>
-</div>
-
-<p class="small fragment">Lower bound Ω(n log n): sorting reduces to it (points on a line give the sorted order).</p>
-
-Note:
-⏱ 0:40–0:48. Your old slides develop the D&C algorithm in detail; mention it and move to Fortune, which follows de Berg.
-
----
-
-## Why a plain sweep fails
-
-<div class="cols">
-<div>
-
-A horizontal line sweeping down: the part of the diagram **above** the line…
-
-<p class="fragment">…still depends on sites <b>below</b> the line, that we haven't seen yet!</p>
-<p class="fragment">A Voronoi vertex can be found by the sweep line <b>before</b> the sites that define it.</p>
-
-</div>
-<div class="card fragment">
-<h4>Fortune's fix</h4>
-<p>Only keep the part of the diagram that <b>can no longer change</b>: points closer to some site above ℓ than to ℓ itself. They can't be closer to any site below ℓ.</p>
-</div>
-</div>
-
-Note:
-⏱ 0:48–0:52.
-
----
-
-## The beach line
-
-- Points equidistant from a site p and the sweep line ℓ form a **parabola** with focus p.
-- The boundary of the "finished" region is the **lower envelope** of these parabolas: the **beach line** (a sequence of parabolic arcs). <!-- .element: class="fragment" -->
-- The **breakpoints** between arcs trace out the Voronoi edges as ℓ moves down. <!-- .element: class="fragment" -->
-
-Note:
-⏱ 0:52–0:56. Mental image: each site sends a wave; the beach line is where the sea of "settled" points meets the water ahead.
-
----
-
-## Fortune's sweep in action
-
-<div class="w" data-widget="fortune" data-n="8" data-h="300"></div>
-
-Note:
-⏱ 0:56–1:06. Play at speed 6–7. The diagram appears only above the green beach line. Pauses: "Site event" (a new arc is born, zero width, growing) and "Circle event" (orange dashed circle: its lowest point touches the sweep line; an arc shrinks to a point → Voronoi vertex). Ask before a circle event: "which arc is about to disappear?"
-
----
-
-## Two kinds of events
-
-<div class="cols">
-<div class="card"><h4>Site event</h4><p>ℓ reaches a new site → a <b>new arc</b> appears on the beach line (splitting the arc above it). The only way arcs appear. <b>n</b> of them, known in advance.</p></div>
-<div class="card"><h4>Circle event</h4><p>Three consecutive arcs' sites define a circle; when ℓ reaches its <b>lowest point</b>, the middle arc vanishes and a <b>Voronoi vertex</b> appears at the center. Discovered on the fly (some are false alarms).</p></div>
-</div>
-
-<p class="small">Data structures: event queue (priority queue) · beach line in a balanced BST (leaves = arcs) · the diagram in a DCEL. Each event costs O(log n), there are O(n) events → <b>O(n log n)</b> time, <b>O(n)</b> space (de Berg Thm 7.10).</p>
-
-Note:
-⏱ 1:06–1:12. The beach line has at most 2n − 1 arcs (each site event adds at most 2).
-
----
-
-<!-- .slide: class="checkpoint" -->
-<div class="quiz" data-answer="2">
-<p class="q">What happens at a circle event?</p>
-<ol><li>A new site is inserted into the beach line</li><li>An arc disappears and a Voronoi vertex is created</li><li>The sweep line jumps to the next site</li><li>Two sites are merged</li></ol>
-<p class="explain">The circle through three sites is empty and touches ℓ: its center is equidistant from 3 sites and ℓ.</p>
-</div>
-
-Note:
-⏱ 1:12–1:17.
-
+⏱ 0:47–0:52.
 
 --
 
 <!-- .slide: class="checkpoint" -->
-<div class="quiz" data-answer="1">
-<p class="q">Which statement about the beach line is true?</p>
-<ol><li>Every point above it is closer to some site above ℓ than to ℓ</li><li>It is a straight line</li><li>It contains all sites</li><li>It only changes at site events</li></ol>
-<p class="explain">That's why everything above the beach line is final.</p>
+<div class="quiz" data-answer="3">
+<p class="q">Which sites have an unbounded cell?</p>
+<ol><li>The leftmost and rightmost sites only</li><li>The sites with the most neighbors</li><li>Exactly the vertices of the convex hull</li><li>None: cells are always bounded</li></ol>
+<p class="explain">Far away in a direction, the nearest site is the most extreme one in that direction.</p>
 </div>
 
 ---
 
 <!-- .slide: class="divider" -->
-## Geometric search: the post-office problem
+## Algorithm 1 · One cell at a time
 
-Preprocess n post offices so that, for any query point q, we find the **nearest one fast**.
-
-<div class="cols">
-<div class="card fragment"><h4>Answer</h4><p>Build Vor(P), then do <b>point location</b>: which cell contains q?</p></div>
-<div class="card fragment"><h4>Cost</h4><p>Planar point location (de Berg ch. 6, trapezoidal maps): O(n) storage, <b>O(log n)</b> expected query.</p></div>
-</div>
-
-Note:
-⏱ 1:17–1:22. Knuth's original "post-office problem" (1973).
+The definition is already an algorithm
 
 ---
 
-## Point location: the slab idea
+## The cell of the red site
+
+<div class="w" data-widget="vorcell" data-n="9" data-h="340"></div>
+
+Note:
+⏱ 0:52–1:00. Your red / yellow / brown sequence. Start with the whole plane; for each other site (closest first), draw the bisector and cut away the gray half-plane of points that prefer that site. Point out the sites that do NOT change anything: they are not neighbors. Press "Another red site" to show that a site on the hull gets an unbounded cell (it touches the frame).
+
+---
+
+## Cost of the naive algorithm
 
 <div class="cols">
 <div>
 
-1. Draw vertical lines through every vertex → **slabs**.
-2. Inside a slab, the edges don't cross → they're **ordered** top to bottom.
-3. Query: binary search the slab by x, then binary search the edge by y → **O(log n)**.
+```text
+NaiveVoronoi(P):
+    for each site pᵢ:                         // n times
+        V(pᵢ) = intersection of the n − 1
+                half-planes h(pᵢ, pⱼ)         // O(n log n)
+```
+
+- Intersecting N half-planes takes **O(N log N)** (divide and conquer, like the convex hull). <!-- .element: class="fragment" -->
+- n cells × O(n log n) = **O(n² log n)**. <!-- .element: class="fragment" -->
 
 </div>
-<div class="card">
-<h4>Trade-off</h4>
-<p>Slabs need O(n²) storage in the worst case. Trapezoidal maps (randomized incremental) get <b>O(n) storage</b> with O(log n) expected query — next session's randomization idea!</p>
+<div class="card fragment">
+<h4>Can we do better?</h4>
+<p>The output has only O(n) size, but we spend O(n² log n). Lower bound: <b>Ω(n log n)</b> — sites on a line give the sorted order, so a faster algorithm would sort faster.</p>
+<p>Goal: <b>O(n log n)</b>.</p>
 </div>
 </div>
 
 Note:
-⏱ 1:22–1:27. Same "preprocess once, query many times" pattern as kd-trees in session 4.2.
+⏱ 1:00–1:02. Your "Computing the Voronoi diagram — naive algorithm" slide and the Lemma/Theorem/Corollaries slide.
+
+---
+
+<!-- .slide: class="divider" -->
+## Algorithm 2 · Divide and conquer
+
+Shamos & Hoey, 1975
+
+---
+
+## The plan
+
+<div class="cols">
+<div>
+
+1. **Divide** S by a vertical line into S₁ (left) and S₂ (right), about n/2 sites each.
+2. **Conquer**: compute Vor(S₁) and Vor(S₂) recursively.
+3. **Combine** them into Vor(S). <span class="hot">How?</span>
+
+</div>
+<div class="card fragment">
+<h4>Lemma</h4>
+<p>If S₁ and S₂ are separated by a vertical line, there is a <b>y-monotone polygonal chain c</b> such that every point to its left is in the cell of a site of S₁, and every point to its right in the cell of a site of S₂.</p>
+<p class="small">c is made of the Voronoi edges between a left site and a right site.</p>
+</div>
+</div>
+
+Note:
+⏱ 1:02–1:05. Same pattern as merge sort and closest pair (session 4.1): all the cleverness is in the combine step.
+
+---
+
+## Merging: walking down the chain
+
+<div class="w" data-widget="vordc" data-n="12" data-h="350"></div>
+
+Note:
+⏱ 1:05–1:15. Your step-by-step sequence. (1) Start very high on the dividing line: that point is in the cell of p (left) and q (right) — p and q are the endpoints of the UPPER common tangent of the two convex hulls. (2) Walk down along the bisector of p and q. (3) When the walk hits an orange edge (of Vor(S₁)), we enter the cell of another left site: update p; when it hits a blue edge, update q. Go to 2. (4) Finally, delete the orange parts to the right of c and the blue parts to the left. Ask before each step: "will p or q change next?"
+
+---
+
+## The algorithm and its cost
+
+```text
+VoronoiDiagram(S):                      // S presorted by x once: O(n log n)
+    if |S| is small: solve directly
+    split S into S₁, S₂ by the median x              // O(1)
+    V₁ = VoronoiDiagram(S₁);  V₂ = VoronoiDiagram(S₂)  // 2 T(n/2)
+    c  = dividing chain of V₁ and V₂                 // O(n)
+    remove V₁ right of c and V₂ left of c            // O(n)
+    return V₁ ∪ V₂ ∪ c
+```
+
+<div class="cols3 small">
+<div class="card fragment"><h4>Linear merge</h4><p>The walk crosses each edge of V₁ and V₂ a constant number of times, and both diagrams have linear size.</p></div>
+<div class="card fragment"><h4>Recurrence</h4><p>T(n) = 2T(n/2) + O(n) → <b>O(n log n)</b>, the same as merge sort.</p></div>
+<div class="card fragment"><h4>Optimal</h4><p>Matches the Ω(n log n) lower bound. <span class="muted">Fortune's sweep (1987) is another O(n log n) method, used by most libraries (de Berg 7.2).</span></p></div>
+</div>
+
+Note:
+⏱ 1:15–1:19. Your "Complexity" slides. The O(n) merge needs a good representation (each cell knows its edges in order, e.g. a DCEL) so that the walk can find the next edge without searching.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="2">
+<p class="q">While walking down the dividing chain, the bisector of p and q hits an edge of Vor(S₂) (the right diagram). What happens?</p>
+<ol><li>p changes to another left site</li><li>q changes to another right site</li><li>the algorithm stops</li><li>the walk goes back up</li></ol>
+<p class="explain">Crossing an edge of Vor(S₂) means entering the cell of a different right site.</p>
+</div>
+
+Note:
+⏱ 1:19–1:23.
+
+--
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="4">
+<p class="q">Why is the divide-and-conquer algorithm O(n log n) and not O(n² log n)?</p>
+<ol><li>Because it uses half-plane intersection</li><li>Because it ignores the sites on the convex hull</li><li>Because it only builds half of the diagram</li><li>Because the merge step is linear, so T(n) = 2T(n/2) + O(n)</li></ol>
+<p class="explain">Same recurrence as merge sort.</p>
+</div>
+
+---
+
+## Applications
+
+<div class="cols3">
+<div class="card"><h4>Geometric search</h4><p><b>Post-office problem</b>: preprocess the sites; for each query q, find the nearest one. Build Vor(P) and locate the cell containing q (point location) → <b>O(log n)</b> per query, O(n) storage.</p></div>
+<div class="card"><h4>Motion planning</h4><p>A robot that must stay as far as possible from obstacles moves along the <b>Voronoi edges</b> ("retraction" methods): first move onto the diagram, then follow it, then leave it to reach the goal.</p></div>
+<div class="card"><h4>Facility location</h4><p>Largest empty circle: a new store or antenna at a Voronoi vertex. Service areas, coverage, nearest-neighbor classification.</p></div>
+</div>
+
+Note:
+⏱ 1:23–1:26. Your "Motion planning and Voronoi diagrams" slide. Point location: slabs give O(log n) queries but O(n²) storage; trapezoidal maps (de Berg ch. 6) get O(n) storage with O(log n) expected query time.
 
 ---
 
 <!-- .slide: class="activity" -->
-## Your turn
+## Your turn: the nearest school
 
-Sites A(0, 0), B(4, 0), C(0, 4), D(4, 4), E(2, 2).
+Schools at (9,7), (14,5), (8,4), (4,1), (6,10), (6,5), (11,9). Using a Voronoi diagram, which school is the nearest one to the homes at **(9,3)** and **(14,10)**?
 
-1. Sketch Vor(P). Which cells are unbounded?
-2. Where are the Voronoi vertices? Check: ≤ 2n − 5.
-3. A new store must be as far as possible from all five, inside the square [0,4]². Where?
+1. On grid paper, plot the schools and sketch the bisectors that matter.
+2. Locate the two homes in the diagram.
+3. Then press ↓ to check with the interactive diagram.
 
 <div class="timer" data-seconds="300"></div>
 
-<details><summary>Check</summary>
-1) A, B, C, D are hull vertices → unbounded; E's cell is the bounded diamond with corners (2,0), (4,2), (2,4), (0,2). 2) Those 4 points are the Voronoi vertices (each equidistant from E and two corners): 4 ≤ 2·5 − 5 = 5 ✓. 3) Any of them, e.g. (2, 0): distance 2 to A, B and E.
-</details>
+--
+
+## Check: the nearest school
+
+<div class="w" data-widget="voronoi" data-points="9,7;14,5;8,4;4,1;6,10;6,5;11,9" data-queries="9,3;14,10" data-h="350"></div>
 
 Note:
-⏱ 1:27–1:33. Students can verify by clicking these sites into the widget on the "Build a diagram" slide (approximately).
+⏱ 1:26–1:33. Your exercise. Let them sketch first on grid paper (or reason with bisectors), then press "Show the queries". Answers: (9,3) → school (8,4) (distance √2); (14,10) → school (11,9) (distance √10). Ask: "how many distance computations did the diagram save us?"
 
 ---
 
 <!-- .slide: class="checkpoint" -->
 ## Exit ticket
 
-<div class="quiz" data-answer="3">
-<p class="q">A site has an unbounded Voronoi cell if and only if…</p>
-<ol><li>it is the leftmost site</li><li>it has the most neighbors</li><li>it is a vertex of the convex hull of P</li><li>no other site is within distance 1</li></ol>
-<p class="explain">de Berg, Thm 7.4 and its consequences.</p>
+<div class="quiz" data-answer="1">
+<p class="q">Which statement is TRUE?</p>
+<ol><li>Each Voronoi cell is the intersection of n − 1 half-planes, so it is convex</li><li>A Voronoi diagram of n sites can have Θ(n²) edges</li><li>Every Voronoi cell is bounded</li><li>The naive algorithm already runs in O(n log n)</li></ol>
+<p class="explain">Linear size (≤ 3n − 6 edges); hull sites have unbounded cells; naive is O(n² log n), divide and conquer O(n log n).</p>
 </div>
 
 Note:
-⏱ 1:33–1:40. Muddiest point. Reading: de Berg 7.1–7.2; optional: O'Rourke 5.
+⏱ 1:33–1:38. Muddiest point. Reading: de Berg 7.1; Preparata & Shamos 5.5 (divide and conquer).
 
 ---
 
 ## Takeaways
 
-- **Vor(P)**: each cell = points nearest to one site = ∩ of half-planes → convex.
-- Linear size: **≤ 2n − 5 vertices, ≤ 3n − 6 edges**. Vertices = centers of empty circles through 3 sites.
-- **Fortune's sweep**: beach line of parabolas; site & circle events → **O(n log n)**, optimal.
-- **Post office**: Voronoi + point location → nearest site in O(log n).
+- **Vor(P)**: each cell = the points nearest to one site = ∩ of half-planes → **convex**; unbounded ⇔ hull site.
+- Edges: equidistant from **2** sites; vertices: from **3+** sites (centers of empty circles).
+- **Linear size**: ≤ 2n − 5 vertices, ≤ 3n − 6 edges.
+- Naive: one cell at a time, **O(n² log n)**. Divide and conquer with a linear merge along the chain c: **O(n log n)**, optimal.
 
 <p class="muted small">Next: the dual of the Voronoi diagram — Delaunay triangulations — and randomized algorithms.</p>
 </textarea>
