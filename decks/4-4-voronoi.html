@@ -187,16 +187,6 @@ Note:
 
 ---
 
-## Voronoi Diagrams, Concepts
-
-<iframe data-src="https://www.youtube.com/embed/7eCrHAv6sYY?si=fR6NO1QgMJDWc1l9" width="960" height="540" frameborder="0" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>
-
-Note:
-Ver del minuto 1:20 al 3:00.
-
-  
----
-
 <!-- .slide: class="checkpoint" -->
 <div class="quiz" data-answer="3">
 <p class="q">A point q lies on a Voronoi edge between p₂ and p₅. Which statement is true?</p>
@@ -426,7 +416,7 @@ Note:
 <div class="w" data-widget="vordc" data-n="12" data-h="350"></div>
 
 Note:
-⏱ 1:05–1:15. Your step-by-step sequence. (1) Start very high on the dividing line: that point is in the cell of p (left) and q (right) — p and q are the endpoints of the UPPER common tangent of the two convex hulls. (2) Walk down along the bisector of p and q. (3) When the walk hits an orange edge (of Vor(S₁)), we enter the cell of another left site: update p; when it hits a blue edge, update q. Go to 2. (4) Finally, delete the orange parts to the right of c and the blue parts to the left. Ask before each step: "will p or q change next?"
+⏱ 1:05–1:15. Your step-by-step sequence. (1) Where to start: p and q are the endpoints of the UPPER common tangent of the two convex hulls (dashed). A point very high ON THE CHAIN (red) is equidistant from p and q and closer to them than to any other site, so it is in the cell of p in Vor(S₁) and of q in Vor(S₂). Careful: a point high on the vertical dividing line is not enough — at a finite height it can lie in other cells (the nearest site far up is the highest one, which need not be p or q). (2) Walk down along the bisector of p and q. (3) When the walk hits an orange edge (of Vor(S₁)), we enter the cell of another left site: update p; when it hits a blue edge, update q. Go to 2. (4) Finally, delete the orange parts to the right of c and the blue parts to the left. Ask before each step: "will p or q change next?"
 
 ---
 
@@ -506,16 +496,6 @@ Schools at (9,7), (14,5), (8,4), (4,1), (6,10), (6,5), (11,9). Using a Voronoi d
 
 Note:
 ⏱ 1:26–1:33. Your exercise. Let them sketch first on grid paper (or reason with bisectors), then press "Show the queries". Answers: (9,3) → school (8,4) (distance √2); (14,10) → school (11,9) (distance √10). Ask: "how many distance computations did the diagram save us?"
-
----
-
-
-## Voronoi Diagrams, algorithms
-
-<iframe data-src="https://www.youtube.com/embed/Y5X1TvN9TpM?si=IiqGESGPFix3eBvU" width="960" height="540" frameborder="0" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>
-
-Note:
-Ver del minuto 1:20 al 3:00.
 
 ---
 

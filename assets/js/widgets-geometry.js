@@ -785,20 +785,33 @@
     let seed = parseInt(dd.seed || "11", 10), n = parseInt(dd.n || "12", 10), S = [];
     const sv = mkSvg(W, H), stepper = Stepper(draw);
     host.append(h("div", { class: "w-toolbar" }, btn("Random sites", () => { seed++; gen(); build(); })), sv, stepper.bar, stepper.caption);
-    let L = [], R = [], xm = 0, VL = [], VR = [], VS = [], chain = [];
-    function gen() { S = randomPoints(n, W, H, seed, 60).sort((a, b) => a.x - b.x); }
+    let L = [], R = [], xm = 0, VL = [], VR = [], VS = [], chain = [], TF = { s: 1, ox: 0, oy: 0 };
+    function gen() {
+      // pick sites whose dividing chain has all its vertices well inside the frame (so the whole walk is visible)
+      for (let tries = 0; tries < 60; tries++, seed++) {
+        S = randomPoints(n, W, H, seed, 70).sort((a, b) => a.x - b.x);
+        const h2 = Math.floor(S.length / 2), side = (i) => (i < h2 ? 0 : 1), ok = labelledCells(S).every((c, i) => c.E.every((e) => side(i) === side(e.j) || [e.a, e.b].every((v) => Math.abs(v.x) > 3000 || Math.abs(v.y) > 3000 || (v.x > 25 && v.x < W - 25 && v.y > 25 && v.y < H - 25))));
+        if (ok) return;
+      }
+    }
     const segsOf = (sites, cells, filt) => { const out = []; cells.forEach((c, i) => c.E.forEach((e) => { if (e.j > i && (!filt || filt(i, e.j))) out.push({ a: e.a, b: e.b, i, j: e.j }); })); return out; };
     function build() {
       const h2 = Math.floor(S.length / 2); L = S.slice(0, h2); R = S.slice(h2); xm = (L[L.length - 1].x + R[0].x) / 2;
       S.forEach((p, i) => (p.side = i < h2 ? "L" : "R"));
       VL = segsOf(L, labelledCells(L)); VR = segsOf(R, labelledCells(R));
       const cS = labelledCells(S); VS = segsOf(S, cS);
-      chain = VS.filter((e) => S[e.i].side !== S[e.j].side).map((e) => { const [l, r] = S[e.i].side === "L" ? [e.i, e.j] : [e.j, e.i]; return { a: e.a, b: e.b, p: S[l], q: S[r], my: (e.a.y + e.b.y) / 2 }; }).sort((u, v) => v.my - u.my);
+      chain = VS.filter((e) => S[e.i].side !== S[e.j].side).map((e) => { const [l, r] = S[e.i].side === "L" ? [e.i, e.j] : [e.j, e.i]; return { a: e.a, b: e.b, p: S[l], q: S[r], hi: Math.max(e.a.y, e.b.y), lo: Math.min(e.a.y, e.b.y) }; }).sort((u, v) => v.hi - u.hi || v.lo - u.lo);  // c is y-monotone: order by top endpoint
+      // view: fit all sites and all finite Voronoi vertices (so the whole chain is visible)
+      const pts = S.slice(); chain.forEach((e) => [e.a, e.b].forEach((v) => { if (Math.abs(v.x) < 3000 && Math.abs(v.y) < 3000) pts.push(v); }));
+      const x0 = Math.min(...pts.map((p) => p.x)), x1 = Math.max(...pts.map((p) => p.x)), y0 = Math.min(...pts.map((p) => p.y)), y1 = Math.max(...pts.map((p) => p.y));
+      const pad = 40, sc = Math.min(1, (W - 2 * pad) / Math.max(1, x1 - x0), (H - 2 * pad) / Math.max(1, y1 - y0));
+      TF = { s: sc, ox: W / 2 - sc * (x0 + x1) / 2, oy: H / 2 - sc * (y0 + y1) / 2 };
       const frames = [];
       frames.push({ st: 0, msg: "Divide: sort by x and split S by a vertical line into S₁ (left) and S₂ (right), about n/2 sites each." });
       frames.push({ st: 1, msg: "Conquer: recursively compute Vor(S₁) (orange)…" });
       frames.push({ st: 2, msg: "…and Vor(S₂) (blue). Now combine them. Key lemma: there is a y-monotone polygonal chain c that separates the points closer to S₁ from those closer to S₂." });
-      frames.push({ st: 3, k: 0, top: true, msg: `Start very high on the dividing line: that point lies in the cell of <b>p</b> in Vor(S₁) and of <b>q</b> in Vor(S₂). The chain starts on the bisector of p and q.` });
+      frames.push({ st: 3, k: 0, top: "tangent", msg: `Where does c start? Draw the convex hulls of S₁ and S₂ and their <b>upper common tangent</b> pq (dashed). Far up, the chain separates the cell of <b>p</b> from the cell of <b>q</b>: both cells are unbounded upward.` });
+      frames.push({ st: 3, k: 0, top: "point", msg: `So a point <b>very high on c</b> (red) is equally far from p and q, and closer to them than to any other site: it lies in the cell of p in Vor(S₁) and in the cell of q in Vor(S₂). From there c follows the bisector of p and q. (A point high on the dashed dividing line is not enough: it may lie in another cell.)` });
       chain.forEach((c, k) => {
         let why = "";
         if (k > 0) { const pc = chain[k - 1]; why = pc.p !== c.p ? `It hit an <span style="color:#f76707"><b>orange</b></span> edge of Vor(S₁) → <b>p changes</b>. ` : `It hit a <span style="color:#4c6ef5"><b>blue</b></span> edge of Vor(S₂) → <b>q changes</b>. `; }
@@ -809,15 +822,25 @@
       stepper.set(frames);
     }
     function draw(f) {
-      sv.replaceChildren(); const d = D(sv, H);
+      sv.replaceChildren(); const d0 = D(sv, H);
+      const T = (p) => ({ x: TF.s * p.x + TF.ox, y: TF.s * p.y + TF.oy }), Ti = (p) => ({ x: (p.x - TF.ox) / TF.s, y: (p.y - TF.oy) / TF.s });
+      const d = { line: (a, b, st) => d0.line(T(a), T(b), st), dot: (p, r, st) => d0.dot(T(p), r, st), poly: (P, st) => d0.poly(P.map(T), st), circle: (c, r, st) => d0.circle(T(c), r, st), text: (p, s2, st, z, dx, dy) => d0.text(T(p), s2, st, z, dx, dy) };
       const ln = (e, st) => d.line(e.a, e.b, st);
-      if (f.st <= 4) d.line({ x: xm, y: -10 }, { x: xm, y: H + 10 }, "stroke:var(--muted);stroke-width:2;stroke-dasharray:7 6");
+      if (f.st <= 4) d.line({ x: xm, y: -5000 }, { x: xm, y: 5000 }, "stroke:var(--muted);stroke-width:2;stroke-dasharray:7 6");
       if (f.st >= 1 && f.st <= 4) VL.forEach((e) => ln(e, "stroke:#f76707;stroke-width:2.2"));
       if (f.st >= 2 && f.st <= 4) VR.forEach((e) => ln(e, "stroke:#4c6ef5;stroke-width:2.2"));
       if (f.st === 3 || f.st === 4) { const K = f.st === 4 ? chain.length : f.k; chain.slice(0, K).forEach((c, i) => ln(c, `stroke:#74c0fc;stroke-width:${i === K - 1 && f.st === 3 ? 7 : 5}`)); }
       if (f.st === 5) VS.forEach((e) => ln(e, `stroke:${S[e.i].side !== S[e.j].side ? "#74c0fc" : S[e.i].side === "L" ? "#f76707" : "#4c6ef5"};stroke-width:3`));
       let cur = null; if (f.st === 3) cur = chain[Math.max(0, f.k - 1)];
-      if (f.top && cur) { const ty = H - 12; d.dot({ x: xm, y: ty }, 9, "fill:var(--bad)"); d.line({ x: xm, y: ty }, cur.p, "stroke:var(--ink);stroke-width:1.5;stroke-dasharray:4 4"); d.line({ x: xm, y: ty }, cur.q, "stroke:var(--ink);stroke-width:1.5;stroke-dasharray:4 4"); }
+      if (f.top && cur) {
+        const hullOf = (P) => { const A = P.slice().sort((a, b) => a.x - b.x || a.y - b.y), cr = (o, a, b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x), lo = [], up = []; A.forEach((p) => { while (lo.length >= 2 && cr(lo[lo.length - 2], lo[lo.length - 1], p) <= 0) lo.pop(); lo.push(p); }); A.slice().reverse().forEach((p) => { while (up.length >= 2 && cr(up[up.length - 2], up[up.length - 1], p) <= 0) up.pop(); up.push(p); }); return lo.slice(0, -1).concat(up.slice(0, -1)); };
+        [[L, "#f76707"], [R, "#4c6ef5"]].forEach(([P, col]) => { if (P.length >= 3) d.poly(hullOf(P), `fill:none;stroke:${col};stroke-width:1.5;stroke-dasharray:3 4;opacity:.8`); });
+        d.line(cur.p, cur.q, "stroke:var(--ink);stroke-width:2.5;stroke-dasharray:9 6");
+        if (f.top === "point") {
+          const [a, b] = cur.a.y > cur.b.y ? [cur.a, cur.b] : [cur.b, cur.a], ty = Math.min(Ti({ x: 0, y: H - 14 }).y, a.y), tt = (a.y - ty) / ((a.y - b.y) || 1), tp = { x: a.x + (b.x - a.x) * tt, y: ty };
+          d.line(tp, cur.p, "stroke:var(--bad);stroke-width:1.5;stroke-dasharray:4 4"); d.line(tp, cur.q, "stroke:var(--bad);stroke-width:1.5;stroke-dasharray:4 4"); d.dot(tp, 9, "fill:var(--bad)");
+        }
+      }
       S.forEach((p) => d.dot(p, 8, `fill:${f.st === 0 || f.st === 5 ? (f.st === 5 ? "var(--ink)" : p.side === "L" ? "#f76707" : "#4c6ef5") : p.side === "L" ? "#f76707" : "#4c6ef5"}`));
       if (cur) { d.circle(cur.p, 15, "fill:none;stroke:var(--bad);stroke-width:3"); d.circle(cur.q, 15, "fill:none;stroke:var(--bad);stroke-width:3"); d.text(cur.p, "p", "fill:var(--bad)", 20, -26, -10); d.text(cur.q, "q", "fill:var(--bad)", 20, 14, -10); }
     }
