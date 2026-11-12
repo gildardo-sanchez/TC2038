@@ -175,6 +175,8 @@ Widget adicional de la sesión 4.3: `hullclassic` — tu ejemplo p0…p12 con `d
 
 Widgets adicionales de la sesión 4.4: `vorcell` (celda de un sitio como intersección de semiplanos, paso a paso), `vordc` (divide y vencerás: Vor(S₁), Vor(S₂) y la cadena divisoria c) y `voronoi` con `data-points="9,7;14,5;…"` y `data-queries="9,3;…"` (sitios fijos sobre una cuadrícula).
 
+Widgets adicionales de la sesión 4.5: `terrain` (terreno con dos triangulaciones, vista en planta y en 3-D), `inscribed` (ángulo inscrito: arrastra el punto dentro, sobre o fuera del círculo) y `edgeflip` (arista legal/ilegal: arrastra d y compara las dos diagonales).
+
 ### Widgets de búsqueda avanzada (Unidad 5)
 
 Requieren cargar también `assets/js/widgets-search.js` (ya incluido en las sesiones 5.1–5.4).

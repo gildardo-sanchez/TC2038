@@ -955,6 +955,115 @@
   function convexQuad(P, e) { const a = P[e.x.a], b = P[e.x.b], c = P[e.x.opp], d = P[e.y.opp]; return orient(c, d, a) * orient(c, d, b) < 0; }
 
   /* =======================================================
+     10a. Terrain from samples: same points, two triangulations (plan view + 3-D view)
+     ======================================================= */
+  register("terrain", (host, dd) => {
+    const P = [[255, 30, 28], [90, 40, 12], [420, 40, 15], [200, 150, 1000], [310, 150, 990], [50, 150, 620], [460, 150, 700], [255, 270, 20], [90, 260, 8], [420, 260, 10]].map(([x, y, z]) => ({ x, y, z }));
+    const A = [[1, 0, 3], [0, 4, 3], [0, 2, 4], [2, 6, 4], [1, 3, 5], [5, 3, 8], [3, 7, 8], [3, 4, 7], [4, 9, 7], [4, 6, 9]];
+    const B = A.filter((t) => !(t.join() === "0,4,3" || t.join() === "3,4,7")).concat([[0, 4, 7], [0, 7, 3]]);
+    const q = { x: 255, y: 150 };
+    let which = dd.start === "B" ? "B" : "A";
+    const plan = mkSvg(520, 300), view = mkSvg(760, 380), out = h("div", { class: "w-caption" });
+    const bA = btn("Triangulation A", () => { which = "A"; setOn([bA, bB], bA); draw(); }), bB = btn("Triangulation B (one edge flipped)", () => { which = "B"; setOn([bA, bB], bB); draw(); });
+    host.append(h("div", { class: "w-toolbar" }, bA, bB), h("div", { style: "display:grid;grid-template-columns:0.75fr 1.25fr;gap:.8em;align-items:center" }, plan, view), out);
+    setOn([bA, bB], which === "A" ? bA : bB);
+    const proj = (p, z) => ({ x: 40 + p.x * 1.05 + p.y * 0.55, y: 360 - p.y * 0.45 - z * 0.3 });
+    const minAngle = (a, b, c) => { const ang = (p, q2, r) => { const u = { x: q2.x - p.x, y: q2.y - p.y }, v = { x: r.x - p.x, y: r.y - p.y }; return Math.acos((u.x * v.x + u.y * v.y) / (Math.hypot(u.x, u.y) * Math.hypot(v.x, v.y))) * 180 / Math.PI; }; return Math.min(ang(a, b, c), ang(b, c, a), ang(c, a, b)); };
+    function heightAt(T) {
+      for (const t of T) { const [a, b, c] = t.map((i) => P[i]); const det = (b.y - c.y) * (a.x - c.x) + (c.x - b.x) * (a.y - c.y); const l1 = ((b.y - c.y) * (q.x - c.x) + (c.x - b.x) * (q.y - c.y)) / det, l2 = ((c.y - a.y) * (q.x - c.x) + (a.x - c.x) * (q.y - c.y)) / det, l3 = 1 - l1 - l2; if (l1 >= -1e-9 && l2 >= -1e-9 && l3 >= -1e-9) return l1 * a.z + l2 * b.z + l3 * c.z; }
+      return null;
+    }
+    const color = (z, shade) => `hsl(${120 - Math.min(1, z / 1000) * 95} 45% ${(70 - Math.min(1, z / 1000) * 25) * (shade == null ? 1 : shade)}%)`;
+    const shadeOf = (t) => { const [p1, p2, p3] = t.map((i) => ({ x: P[i].x, y: P[i].y, z: P[i].z * 0.3 })); const u = [p2.x - p1.x, p2.y - p1.y, p2.z - p1.z], v = [p3.x - p1.x, p3.y - p1.y, p3.z - p1.z]; let nx = u[1] * v[2] - u[2] * v[1], ny = u[2] * v[0] - u[0] * v[2], nz = u[0] * v[1] - u[1] * v[0]; if (nz < 0) { nx = -nx; ny = -ny; nz = -nz; } const L = Math.hypot(nx, ny, nz) || 1, lx = -0.5, ly = -0.4, lz = 0.77; return 0.62 + 0.45 * Math.max(0, (nx * lx + ny * ly + nz * lz) / L); };
+    function draw() {
+      const T = which === "A" ? A : B, flipE = which === "A" ? [3, 4] : [0, 7];
+      plan.replaceChildren(); const d = D(plan, 300);
+      T.forEach((t) => d.poly(t.map((i) => P[i]), `fill:${color(t.reduce((s, i) => s + P[i].z, 0) / 3)};fill-opacity:.55;stroke:var(--ink);stroke-width:1.5`));
+      d.line(P[flipE[0]], P[flipE[1]], "stroke:var(--bad);stroke-width:4");
+      P.forEach((p) => { d.dot(p, 6, "fill:var(--ink)"); d.text(p, String(p.z), "fill:var(--ink)", 15, 8, -6); });
+      d.dot(q, 7, "fill:var(--hot)"); d.text(q, "q", "fill:var(--hot)", 17, -18, 18);
+      view.replaceChildren();
+      const ground = [1, 0, 2, 6, 9, 7, 8, 5].map((i) => proj(P[i], 0));
+      view.append(S("polygon", { points: ground.map((p) => `${p.x},${p.y}`).join(" "), style: "fill:var(--line);fill-opacity:.35;stroke:var(--muted);stroke-width:1;stroke-dasharray:4 4" }));
+      const tris = T.map((t) => ({ t, depth: t.reduce((s, i) => s + P[i].y, 0) / 3 })).sort((u, v) => v.depth - u.depth);
+      tris.forEach(({ t }) => { const pts = t.map((i) => proj(P[i], P[i].z)); const z = t.reduce((s, i) => s + P[i].z, 0) / 3; view.append(S("polygon", { points: pts.map((p) => `${p.x},${p.y}`).join(" "), style: `fill:${color(z, shadeOf(t))};stroke:#333;stroke-width:1.2` })); });
+      const [e0, e1] = flipE.map((i) => proj(P[i], P[i].z)); view.append(S("line", { x1: e0.x, y1: e0.y, x2: e1.x, y2: e1.y, style: "stroke:var(--bad);stroke-width:4" }));
+      const hz = heightAt(T), qp = proj(q, hz), q0 = proj(q, 0);
+      view.append(S("line", { x1: q0.x, y1: q0.y, x2: qp.x, y2: qp.y, style: "stroke:var(--hot);stroke-width:2;stroke-dasharray:5 4" }), S("circle", { cx: qp.x, cy: qp.y, r: 7, style: "fill:var(--hot)" }));
+      { const all = P.map((p) => proj(p, p.z)).concat(P.map((p) => proj(p, 0))); const x0 = Math.min(...all.map((p) => p.x)) - 15, x1 = Math.max(...all.map((p) => p.x)) + 15, y0 = Math.min(...all.map((p) => p.y)) - 15, y1 = Math.max(...all.map((p) => p.y)) + 15; view.setAttribute("viewBox", `${x0} ${y0} ${x1 - x0} ${y1 - y0}`); }
+      const ma = Math.min(...T.map((t) => minAngle(...t.map((i) => P[i]))));
+      out.innerHTML = which === "A" ? `Triangulation A: the red edge follows the <b>ridge</b>. Interpolated height at q ≈ <b>${Math.round(hz)} m</b>. Smallest angle: <b>${ma.toFixed(1)}°</b>.` : `Triangulation B: one edge flipped. Now the red edge joins two <b>low</b> points across the ridge: a narrow <b>valley</b> appears and q drops to ≈ <b>${Math.round(hz)} m</b>. Smallest angle: <b>${ma.toFixed(1)}°</b> (skinnier triangles).`;
+    }
+    draw();
+  });
+
+  /* =======================================================
+     10b. Inscribed angles: on the circle equal, inside larger, outside smaller
+     ======================================================= */
+  register("inscribed", (host) => {
+    const W = 900, H = 400, C = { x: 450, y: 210 }, Rr = 160;
+    const a = { x: C.x + Rr * Math.cos(Math.PI * 1.15), y: C.y + Rr * Math.sin(Math.PI * 1.15) }, b = { x: C.x + Rr * Math.cos(Math.PI * 1.85), y: C.y + Rr * Math.sin(Math.PI * 1.85) };
+    const pts = [{ x: C.x + Rr * Math.cos(Math.PI * 0.4), y: C.y + Rr * Math.sin(Math.PI * 0.4) }];
+    const sv = mkSvg(W, H, "touch-action:none"), out = h("div", { class: "w-caption" });
+    host.append(sv, out);
+    interact(sv, H, () => pts, draw, { W, grab: 30 });
+    const angAt = (p) => { const u = { x: a.x - p.x, y: a.y - p.y }, v = { x: b.x - p.x, y: b.y - p.y }; return Math.acos((u.x * v.x + u.y * v.y) / (Math.hypot(u.x, u.y) * Math.hypot(v.x, v.y))) * 180 / Math.PI; };
+    const onCircle = angAt({ x: C.x, y: C.y + Rr });
+    function draw() {
+      sv.replaceChildren(); const d = D(sv, H), p = pts[0];
+      d.circle(C, Rr, "fill:var(--accent-soft);fill-opacity:.35;stroke:var(--accent);stroke-width:2.5");
+      d.line(a, b, "stroke:var(--ink);stroke-width:4");
+      const ang = angAt(p), r = dist(p, C), where = Math.abs(r - Rr) < 6 ? "on" : r < Rr ? "in" : "out";
+      const col = where === "on" ? "var(--accent)" : where === "in" ? "var(--ok)" : "var(--bad)";
+      d.line(p, a, `stroke:${col};stroke-width:2.5`); d.line(p, b, `stroke:${col};stroke-width:2.5`);
+      d.dot(a, 8, "fill:var(--ink)"); d.dot(b, 8, "fill:var(--ink)"); d.text(a, "a", "", 20, -22, 22); d.text(b, "b", "", 20, 10, 22);
+      d.dot(p, 11, `fill:${col}`); d.text(p, `${ang.toFixed(1)}°`, `fill:${col}`, 20, 14, -12);
+      out.innerHTML = `<b>Drag the point.</b> Angle seen from it toward the chord ab: <b>${ang.toFixed(1)}°</b>. ` + (where === "on" ? `On the circle (same side): always <b>${onCircle.toFixed(1)}°</b>, wherever you put it (inscribed angle theorem).` : where === "in" ? `<span class="ok">Inside the circle: larger than ${onCircle.toFixed(1)}°.</span>` : `<span class="bad">Outside the circle: smaller than ${onCircle.toFixed(1)}°.</span>`);
+    }
+    draw();
+    return { repaint: draw };
+  });
+
+  /* =======================================================
+     10c. Legal vs illegal edge: drag d, compare both diagonals of the quadrilateral
+     ======================================================= */
+  register("edgeflip", (host) => {
+    const W = 440, H = 340;
+    const a = { x: 70, y: 170, n: "a" }, b = { x: 370, y: 170, n: "b" }, c = { x: 220, y: 300, n: "c" };
+    const pts = [{ x: 220, y: 60, n: "d" }];
+    const s1 = mkSvg(W, H, "touch-action:none"), s2 = mkSvg(W, H, "touch-action:none"), out = h("div", { class: "w-caption" });
+    const lab1 = h("div", { class: "small", style: "text-align:center" }), lab2 = h("div", { class: "small", style: "text-align:center" });
+    host.append(h("div", { style: "display:grid;grid-template-columns:1fr 1fr;gap:1em" }, h("div", {}, s1, lab1), h("div", {}, s2, lab2)), out);
+    interact(s1, H, () => pts, draw, { W, grab: 30 }); interact(s2, H, () => pts, draw, { W, grab: 30 });
+    const ang = (p, q2, r) => { const u = { x: q2.x - p.x, y: q2.y - p.y }, v = { x: r.x - p.x, y: r.y - p.y }; return Math.acos(Math.max(-1, Math.min(1, (u.x * v.x + u.y * v.y) / (Math.hypot(u.x, u.y) * Math.hypot(v.x, v.y))))) * 180 / Math.PI; };
+    const angles = (t) => [ang(t[0], t[1], t[2]), ang(t[1], t[2], t[0]), ang(t[2], t[0], t[1])];
+    const cross = (o, p, q2) => (p.x - o.x) * (q2.y - o.y) - (p.y - o.y) * (q2.x - o.x);
+    function panel(sv, tris, diag, circ, good) {
+      sv.replaceChildren(); const d = D(sv, H);
+      if (circ) d.circle(circ, circ.r, "fill:none;stroke:var(--muted);stroke-width:1.8;stroke-dasharray:6 5");
+      tris.forEach((t) => d.poly(t, `fill:${good ? "var(--ok-soft)" : "var(--bad-soft)"};fill-opacity:.6;stroke:var(--ink);stroke-width:2`));
+      d.line(diag[0], diag[1], `stroke:${good ? "var(--ok)" : "var(--bad)"};stroke-width:4.5`);
+      const all = tris.flatMap((t) => angles(t).map((v, k) => ({ v, at: t[k], t })));
+      const m = all.reduce((x, y) => (y.v < x.v ? y : x));
+      [a, b, c, pts[0]].forEach((p) => { d.dot(p, p === pts[0] ? 11 : 8, `fill:${p === pts[0] ? "var(--hot)" : "var(--ink)"}`); d.text(p, p.n, "", 20, p.y > 200 ? 10 : 10, p.y > 200 ? -10 : 24); });
+      d.circle(m.at, 22, "fill:none;stroke:var(--hot);stroke-width:2.5");
+      return m.v;
+    }
+    function draw() {
+      const dP = pts[0];
+      const convex = Math.sign(cross(a, b, c)) !== Math.sign(cross(a, b, dP)) && Math.sign(cross(c, dP, a)) !== Math.sign(cross(c, dP, b));
+      const circ = circumcircle(a, b, c), inside = circ && dist(dP, circ) < circ.r;
+      const m1 = panel(s1, [[a, b, c], [a, b, dP]], [a, b], circ, !inside);
+      if (!convex) { s2.replaceChildren(); lab1.innerHTML = `diagonal ab · smallest angle <b>${m1.toFixed(1)}°</b>`; lab2.innerHTML = ""; out.innerHTML = "The quadrilateral a, c, b, d is <b>not convex</b>: the other diagonal cd would leave it, so ab cannot be flipped. Drag d back."; return; }
+      const m2 = panel(s2, [[c, dP, a], [c, dP, b]], [c, dP], null, inside);
+      lab1.innerHTML = `diagonal <b>ab</b> · smallest angle <b>${m1.toFixed(1)}°</b>`; lab2.innerHTML = `diagonal <b>cd</b> (after a flip) · smallest angle <b>${m2.toFixed(1)}°</b>`;
+      out.innerHTML = (inside ? `<span class="bad"><b>d is inside the circle through a, b, c → edge ab is illegal.</b></span> Flipping to cd raises the smallest angle from ${m1.toFixed(1)}° to ${m2.toFixed(1)}°.` : `<span class="ok"><b>d is outside the circle through a, b, c → edge ab is legal.</b></span> Flipping to cd would lower the smallest angle from ${m1.toFixed(1)}° to ${m2.toFixed(1)}°.`) + ` <span class="muted">Drag d (orange) in either panel.</span>`;
+    }
+    draw();
+    return { repaint: draw };
+  });
+
+  /* =======================================================
      10. Edge flips (Lawson) → Delaunay
      ======================================================= */
   register("flips", (host, dd) => {
