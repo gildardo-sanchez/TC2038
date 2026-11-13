@@ -123,16 +123,13 @@ A **triangulation** of a point set P is a set of triangles such that:
 Note:
 ⏱ 0:12–0:16. Your "Triangulation" slide. The number of triangulations is huge (exponential: a convex polygon with n vertices already has a Catalan number of them, about 4ⁿ; no set has more than 30ⁿ), so we cannot try them all.
 
---- 
+---
 
 ## More about triangulations
 
-- Triangulation of a vertex set P is a set of triangles whose vertices collectively are P, whose interiors do not intersect,  
-and whose union is the **convex hull** of P. 
-
-- There are exponentially many different triangulations of P. 
-
-- Nevertheless, some triangulations look more natural than others.
+- A triangulation of a point set P is a set of triangles whose corners are exactly P, whose interiors do not intersect, and whose union is the **convex hull** of P.
+- There are **exponentially many** different triangulations of P.
+- Nevertheless, some triangulations look **more natural** than others.
 
 ---
 
@@ -163,10 +160,25 @@ Note:
 ⏱ 0:16–0:21. Your "Good/bad triangulations" and "Good triangulations" slides. Back to the warm-up: B's smallest angle is much smaller than A's (the widget prints it).
 
 ---
-## On the number of triangulations
-For a general set of $n$ points, the number of triangulations can range from a minimum 
-(believed to be approximately $(3.46...)^n$ to a maximum (which is not precisely known, but is at least $2.43^n$ and at most $30^n$.  
 
+## On the number of triangulations
+
+<div class="cols">
+<div>
+
+- A convex polygon with n vertices has a **Catalan number** of triangulations: C(n−2) ≈ 4ⁿ.
+- For n points in general, the **minimum** is conjectured to be about $(\sqrt{12})^n \approx 3.46^n$ (the "double circle"); proven: at least $2.63^n$.
+- The **maximum** is not known exactly: at least $8.65^n$, at most $30^n$.
+
+</div>
+<div class="card fragment">
+<h4>The point</h4>
+<p>Even for 50 points there are more triangulations than atoms in the universe: we cannot try them all. We need a <b>criterion</b> (max-min angle) and an <b>algorithm</b>.</p>
+</div>
+</div>
+
+Note:
+Bounds: Aichholzer et al. (2016) for the minimum, Dumitrescu et al. (2013) for the lower bound on the maximum, Sharir & Sheffer (2011) for 30ⁿ.
 
 ---
 
@@ -461,7 +473,7 @@ Note:
 <div class="w" data-widget="ric" data-n="14" data-h="300"></div>
 
 Note:
-⏱ 1:21–1:27. Red: the triangles whose circumcircle contains the new point (they cannot stay); green: the new triangles around it. This "cavity" view gives exactly the same result as split + flips. Watch the running average of triangles created per insertion: it stays small (about 6). Try "New random order".
+⏱ 1:21–1:27. Your sequence: the huge triangle p₀ p₋₁ p₋₂ around all points; for each point (random order): locate its triangle (orange), connect it to the 3 corners (green), then check the 3 opposite edges: if the opposite point is inside the circle (red dashed), the edge is illegal (red) → flip; the new edges are checked recursively. At the end, discard p₀, p₋₁, p₋₂ and their edges. Ask before each check: "legal or illegal?". "Same points, new order" shows that the final triangulation is always the same; only the number of flips changes.
 
 ---
 

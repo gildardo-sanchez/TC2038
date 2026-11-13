@@ -1109,40 +1109,87 @@
   /* =======================================================
      11. Randomized incremental Delaunay construction
      ======================================================= */
+  /* RIC with a VISIBLE super-triangle p0, p-1, p-2 and explicit split + legalize (flip) steps (course slides' sequence) */
   register("ric", (host, dd) => {
-    const W = 900, H = 400;
-    let seed = parseInt(dd.seed || "17", 10), P = [];
-    const sv = mkSvg(W, H, "overflow:hidden");
-    const stats = h("div", { class: "w-stats" });
-    const stepper = Stepper(draw);
-    host.append(h("div", { class: "w-toolbar" }, btn("New random order", () => { seed++; build(); })), sv, stepper.bar, stepper.caption, stats);
-    let Q = [], n = 0;
-    function build() {
-      P = randomPoints(parseInt(dd.n || "14", 10), W, H, 99, 40); n = P.length;
-      const r = rng(seed); const order = P.map((_, i) => i); for (let i = n - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
-      const frames = []; let total = 0;
-      const res = bowyerWatson(P, order, (s) => {
-        total += s.created.length;
-        frames.push({ phase: "locate", s, ins: order.slice(0, s.step), total, msg: `Insert point #${s.step + 1} (random order). The ${s.bad.length} triangle${s.bad.length > 1 ? "s" : ""} whose circumcircle contains it ${s.bad.length > 1 ? "are" : "is"} no longer Delaunay…` });
-        frames.push({ phase: "done", s, ins: order.slice(0, s.step + 1), total, msg: `…replace them by ${s.created.length} new triangles around the point (same result as split + edge flips). Average so far: ${(total / (s.step + 1)).toFixed(1)} per insertion.` });
+    const W = 900, H = 400, n = parseInt(dd.n || "10", 10);
+    let seed = parseInt(dd.seed || "3", 10), P = [], Q = [], order = [];
+    const sv = mkSvg(W, H, "overflow:hidden"), stats = h("div", { class: "w-stats" }), stepper = Stepper(draw);
+    host.append(h("div", { class: "w-toolbar" }, btn("New points & order", () => { seed++; gen(); build(); }), btn("Same points, new order", () => { shuffle(seed * 7919 + (++reorder)); build(); })), sv, stepper.bar, stepper.caption, stats);
+    let reorder = 0;
+    const SUP = [{ x: 450, y: 388, lab: "p₀" }, { x: 885, y: 14, lab: "p₋₁" }, { x: 15, y: 14, lab: "p₋₂" }];
+    const ccw = (a, b, c) => (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+    const inCirc = (a, b, c, d) => { const cc = circumcircle(a, b, c); return cc && dist(cc, d) < cc.r - 1e-7; };
+    const ekey = (u, v) => (u < v ? u + "," + v : v + "," + u);
+    function shuffle(s) { const r = rng(s); order = P.map((_, i) => i); for (let i = n - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; } }
+    function run(record) {
+      Q = P.concat(SUP); const T = [[n, n + 2, n + 1]].map((t) => (ccw(Q[t[0]], Q[t[1]], Q[t[2]]) > 0 ? t : [t[0], t[2], t[1]]));
+      const frames = record ? [] : null, done = [];
+      const snap = () => T.map((t) => t.slice());
+      if (record) frames.push({ T: snap(), ins: [], msg: "Start: a huge triangle p₀ p₋₁ p₋₂ that contains all the points (p₀ is above all of them; p₋₁, p₋₂ far away below). It is trivially Delaunay." });
+      let total = 0;
+      order.forEach((pi, step) => {
+        const p = Q[pi]; const ti = T.findIndex((t) => ccw(Q[t[0]], Q[t[1]], p) >= 0 && ccw(Q[t[1]], Q[t[2]], p) >= 0 && ccw(Q[t[2]], Q[t[0]], p) >= 0);
+        const [a, b, c] = T[ti];
+        if (record) frames.push({ T: snap(), ins: done.slice(), cur: pi, loc: [a, b, c], msg: `Insert point ${step + 1} of ${n} (random order): locate the triangle that contains it.` });
+        T.splice(ti, 1, [pi, a, b], [pi, b, c], [pi, c, a]);
+        if (record) frames.push({ T: snap(), ins: done.slice(), cur: pi, newE: [[pi, a], [pi, b], [pi, c]], msg: "Connect it to the 3 corners: 3 new triangles. Now check the 3 edges opposite to the new point." });
+        let flips = 0;
+        const legalize = (u, v) => { // triangle (pi, u, v); neighbor across uv is (v, u, w)
+          const nj = T.findIndex((t) => t.includes(u) && t.includes(v) && !t.includes(pi)); if (nj < 0) return;
+          const w = T[nj].find((x) => x !== u && x !== v), ti2 = T.findIndex((t) => t.includes(pi) && t.includes(u) && t.includes(v));
+          if (inCirc(Q[pi], Q[u], Q[v], Q[w])) {
+            if (record) frames.push({ T: snap(), ins: done.slice(), cur: pi, circ: [pi, u, v], bad: [u, v], opp: w, msg: `The red edge is <span class="bad">illegal</span>: the opposite point lies inside the circle through the new point and the edge → flip it.` });
+            T.splice(Math.max(nj, ti2), 1); T.splice(Math.min(nj, ti2), 1); T.push([pi, u, w], [pi, w, v]); flips++; total++;
+            if (record) frames.push({ T: snap(), ins: done.slice(), cur: pi, newE: [[pi, w]], msg: `Flipped: the new edge goes to the new point. Its two new outer edges must be checked too (recursively).` });
+            legalize(u, w); legalize(w, v);
+          }
+        };
+        legalize(a, b); legalize(b, c); legalize(c, a);
+        done.push(pi);
+        if (record) frames.push({ T: snap(), ins: done.slice(), cur: pi, msg: `All edges around it are legal (${flips} flip${flips === 1 ? "" : "s"} for this point). The triangulation is Delaunay again.` });
       });
-      Q = res.Q;
-      frames.push({ phase: "final", s: { T: res.T, created: [], bad: [] }, ins: order, total, msg: `Remove the 3 artificial outer points: Delaunay triangulation of ${n} points. ${total} triangles created in total — expected O(n) (≤ 9n + 1), expected time O(n log n).` });
+      return { T, frames, total };
+    }
+    function finalEdges(T) { const s = new Set(); T.forEach((t) => { if (t.some((i) => i >= n)) return; [[0, 1], [1, 2], [2, 0]].forEach(([x, y]) => s.add(ekey(t[x], t[y]))); }); return s; }
+    function gen() {
+      for (let k = 0; k < 300; k++, seed++) {
+        const r = rng(seed); P = [];
+        while (P.length < n) { const p = { x: 300 + r() * 300, y: 85 + r() * 150 }; if (P.every((q) => dist(p, q) > 38)) P.push(p); }
+        shuffle(seed);
+        const mine = finalEdges(run(false).T);
+        const ref = bowyerWatson(P, P.map((_, i) => i), () => {}), refE = new Set(); ref.T.forEach((t) => { if (t.some((i) => i >= n)) return; [[0, 1], [1, 2], [2, 0]].forEach(([x, y]) => refE.add(ekey(t[x], t[y]))); });
+        if (mine.size === refE.size && [...mine].every((e) => refE.has(e))) return;
+      }
+    }
+    function build() {
+      const res = run(true), frames = res.frames, T = res.T;
+      frames.push({ T: T.map((x) => x.slice()), ins: order.slice(), drop: true, msg: "Finally discard p₀, p₋₁, p₋₂ and all their edges (dashed)…" });
+      frames.push({ T: T.filter((x) => x.every((i) => i < n)), ins: order.slice(), fin: true, msg: `…and what remains is the Delaunay triangulation of the ${n} points. ${res.total} flips in total — expected O(1) per point, O(n log n) expected time.` });
       stepper.set(frames);
     }
     function draw(f) {
       sv.replaceChildren(); const d = D(sv, H);
-      const s = f.s, T = f.phase === "locate" ? s.T.filter((t) => !s.created.includes(t)).concat(s.bad) : s.T;
-      const fake = (t) => t.some((i) => i >= n);
-      if (f.phase === "locate") s.bad.forEach((t) => { const c = circumcircle(Q[t[0]], Q[t[1]], Q[t[2]]); if (!fake(t)) d.poly(t.map((i) => Q[i]), "fill:var(--bad-soft)"); if (c && c.r < 2000) d.circle(c, c.r, "fill:none;stroke:var(--bad);stroke-width:1.5;stroke-dasharray:5 4"); });
-      if (f.phase === "done") s.created.forEach((t) => { if (!fake(t)) d.poly(t.map((i) => Q[i]), "fill:var(--ok-soft)"); });
-      T.forEach((t) => { if (f.phase === "final" && fake(t)) return; [[0, 1], [1, 2], [2, 0]].forEach(([a, b]) => { const u = t[a], v = t[b]; const outer = u >= n || v >= n; d.line(Q[u], Q[v], outer ? "stroke:var(--muted);stroke-width:1;stroke-dasharray:3 5" : "stroke:var(--accent);stroke-width:2.2"); }); });
+      if (!f.fin) d.poly(SUP, "fill:var(--accent-soft);fill-opacity:.25;stroke:none");
+      if (f.loc) d.poly(f.loc.map((i) => Q[i]), "fill:var(--hot-soft);stroke:none");
+      if (f.circ) { const c = circumcircle(...f.circ.map((i) => Q[i])); if (c) d.circle(c, c.r, "fill:var(--bad-soft);fill-opacity:.45;stroke:var(--bad);stroke-width:2;stroke-dasharray:6 4"); }
+      const newSet = new Set((f.newE || []).map(([u, v]) => ekey(u, v))), seen = new Set();
+      f.T.forEach((t) => [[0, 1], [1, 2], [2, 0]].forEach(([x, y]) => {
+        const u = t[x], v = t[y], k = ekey(u, v); if (seen.has(k)) return; seen.add(k);
+        const outer = u >= n || v >= n, both = u >= n && v >= n;
+        let st = both ? "stroke:var(--ink);stroke-width:3" : outer ? "stroke:var(--muted);stroke-width:1.6" : "stroke:var(--accent);stroke-width:2.4";
+        if (f.drop && outer) st = "stroke:var(--bad);stroke-width:1.6;stroke-dasharray:5 5";
+        if (newSet.has(k)) st = "stroke:var(--ok);stroke-width:4";
+        if (f.bad && k === ekey(f.bad[0], f.bad[1])) st = "stroke:var(--bad);stroke-width:5";
+        d.line(Q[u], Q[v], st);
+      }));
+      if (!f.fin) SUP.forEach((s) => { d.dot(s, 8, "fill:var(--ink)"); d.text(s, s.lab, "fill:var(--ink);font-size:22px", 22, s.x > 450 ? -52 : s.x < 450 ? 18 : 14, s.y > 200 ? 8 : -22); });
       const ins = new Set(f.ins);
-      P.forEach((p, i) => d.dot(p, ins.has(i) ? 6 : 4, `fill:${ins.has(i) ? "var(--ink)" : "var(--line)"}`));
-      if (s.p != null) d.dot(Q[s.p], 11, "fill:var(--hot)");
-      stats.replaceChildren(stat("inserted:", f.ins.length + " / " + n), stat("triangles created so far:", f.total), stat("9n + 1 =", 9 * n + 1));
+      P.forEach((p, i) => d.dot(p, ins.has(i) || i === f.cur ? 7 : 5, `fill:${i === f.cur ? "var(--hot)" : ins.has(i) ? "var(--ink)" : "var(--line)"}`));
+      if (f.opp != null) d.circle(Q[f.opp], 12, "fill:none;stroke:var(--bad);stroke-width:3");
+      if (f.cur != null) d.dot(Q[f.cur], 10, "fill:var(--hot)");
+      stats.replaceChildren(stat("inserted:", f.ins.length + " / " + n), stat("triangles:", f.T.length));
     }
-    build();
+    gen(); build();
     return { stepper };
   });
 
