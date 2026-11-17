@@ -15,6 +15,65 @@
   const chip = (txt, cls) => h("div", { class: "cell " + (cls || "") }, txt);
 
   /* =======================================================
+     0. Wolf, goat & cabbage: play it, then see its state space
+     state = 4 bits (F, W, G, C): 0 = left bank, 1 = right bank
+     ======================================================= */
+  register("river", (host, d) => {
+    const mode = d.mode || "play";               // "play" | "space"
+    const NAMES = ["Farmer", "Wolf", "Goat", "Cabbage"], L = ["F", "W", "G", "C"], COL = ["#4c6ef5", "#868e96", "#f08c00", "#37b24d"];
+    const side = (s, i) => (s >> i) & 1;
+    const unsafe = (s) => (side(s, 1) === side(s, 2) && side(s, 0) !== side(s, 1)) ? "the wolf eats the goat!" : (side(s, 2) === side(s, 3) && side(s, 0) !== side(s, 2)) ? "the goat eats the cabbage!" : null;
+    const label = (s) => { const l = [0, 1, 2, 3].filter((i) => !side(s, i)).map((i) => L[i]).join("") || "∅", r = [0, 1, 2, 3].filter((i) => side(s, i)).map((i) => L[i]).join("") || "∅"; return l + " | " + r; };
+    const moves = (s) => { const out = []; [-1, 1, 2, 3].forEach((k) => { if (k > 0 && side(s, k) !== side(s, 0)) return; let t = s ^ 1; if (k > 0) t ^= 1 << k; out.push({ k, t }); }); return out; };
+    // state space (legal states only) laid out by BFS depth
+    const legal = []; for (let s = 0; s < 16; s++) if (!unsafe(s)) legal.push(s);
+    const depth = { 0: 0 }, par = { 0: null }, Q = [0]; while (Q.length) { const s = Q.shift(); moves(s).forEach(({ t }) => { if (!unsafe(t) && depth[t] == null) { depth[t] = depth[s] + 1; par[t] = s; Q.push(t); } }); }
+    const cols = {}; legal.forEach((s) => (cols[depth[s]] = (cols[depth[s]] || []).concat(s)));
+    const GW = 900, GH = 300, pos = {};
+    Object.entries(cols).forEach(([dd, ss]) => ss.forEach((s, k) => { pos[s] = { x: 60 + dd * (GW - 120) / 7, y: GH / 2 + (k - (ss.length - 1) / 2) * 130 }; }));
+    const sol = []; for (let s = 15; s != null; s = par[s]) sol.unshift(s);
+    let cur = 0, hist = [0], dead = null, showSol = false;
+    const scene = mkSvg(900, 230), graph = mkSvg(GW, GH), out = h("div", { class: "w-caption" });
+    const mb = [-1, 1, 2, 3].map((k) => btn(k < 0 ? "Cross alone" : "Take the " + NAMES[k].toLowerCase(), () => go(k)));
+    const tools = [...mb, btn("Undo", () => { if (hist.length > 1) { hist.pop(); cur = hist[hist.length - 1]; dead = null; draw(); } }), btn("Reset", () => { cur = 0; hist = [0]; dead = null; showSol = false; draw(); })];
+    if (mode === "space") tools.push(btn("Show a shortest solution", () => { showSol = !showSol; draw(); }));
+    host.append(h("div", { class: "w-toolbar" }, ...tools), mode === "space" ? h("div", { style: "display:grid;grid-template-columns:0.75fr 1.45fr;gap:.8em;align-items:center" }, scene, graph) : scene, out);
+    function go(k) {
+      if (dead || cur === 15) return;
+      const m = moves(cur).find((x) => x.k === k); if (!m) { out.innerHTML = `<span class="bad">The ${NAMES[k].toLowerCase()} is not on the farmer's bank.</span>`; return; }
+      cur = m.t; hist.push(cur); dead = unsafe(cur); draw();
+    }
+    function draw() {
+      scene.replaceChildren();
+      scene.append(S("rect", { x: 0, y: 0, width: 300, height: 230, style: "fill:#d3f9d8" }), S("rect", { x: 600, y: 0, width: 300, height: 230, style: "fill:#d3f9d8" }), S("rect", { x: 300, y: 0, width: 300, height: 230, style: "fill:#a5d8ff" }));
+      scene.append(S("text", { x: 150, y: 24, "text-anchor": "middle", "font-size": 18, "font-weight": 700, style: "fill:#2b8a3e" }, "left bank"), S("text", { x: 750, y: 24, "text-anchor": "middle", "font-size": 18, "font-weight": 700, style: "fill:#2b8a3e" }, "right bank"));
+      const fs = side(cur, 0);
+      scene.append(S("path", { d: `M${fs ? 470 : 330},170 h100 l-18,26 h-64 z`, style: "fill:#8d5a2b" }));
+      [0, 1, 2, 3].forEach((i) => {
+        const s = side(cur, i), x = (s ? 640 : 40) + i * 62, y = 120;
+        scene.append(S("circle", { cx: x + 26, cy: y, r: 26, style: `fill:${COL[i]};stroke:${dead && i > 0 && ((dead.includes("wolf") && (i === 1 || i === 2)) || (dead.includes("cabbage") && (i === 2 || i === 3))) ? "var(--bad)" : "#fff"};stroke-width:4` }));
+        scene.append(S("text", { x: x + 26, y: y + 7, "text-anchor": "middle", "font-size": 22, "font-weight": 700, style: "fill:#fff" }, L[i]));
+        scene.append(S("text", { x: x + 26, y: y + 46, "text-anchor": "middle", "font-size": 13, style: "fill:#333" }, NAMES[i]));
+      });
+      const nm = hist.length - 1;
+      out.innerHTML = dead ? `<span class="bad"><b>Oops — ${dead}</b></span> That state is not allowed. Press Undo.` : cur === 15 ? `<span class="ok"><b>Solved in ${nm} crossings!</b></span> ${nm === 7 ? "That is the minimum." : "The minimum is 7 — can you do it in fewer?"}` : `The farmer must take everyone to the right bank. The boat carries the farmer and <b>at most one</b> passenger. Never leave the wolf alone with the goat, or the goat with the cabbage. Crossings so far: <b>${nm}</b>.`;
+      if (mode !== "space") return;
+      graph.replaceChildren();
+      const onPath = new Set(); for (let i = 0; i + 1 < hist.length; i++) onPath.add(Math.min(hist[i], hist[i + 1]) + "-" + Math.max(hist[i], hist[i + 1]));
+      const solE = new Set(); for (let i = 0; i + 1 < sol.length; i++) solE.add(Math.min(sol[i], sol[i + 1]) + "-" + Math.max(sol[i], sol[i + 1]));
+      legal.forEach((s) => moves(s).forEach(({ t }) => { if (unsafe(t) || t < s) return; const k = s + "-" + t, a = pos[s], b = pos[t];
+        graph.append(S("line", { x1: a.x, y1: a.y, x2: b.x, y2: b.y, style: `stroke:${onPath.has(k) ? "var(--hot)" : showSol && solE.has(k) ? "var(--ok)" : "var(--muted)"};stroke-width:${onPath.has(k) || (showSol && solE.has(k)) ? 7 : 3}` })); }));
+      legal.forEach((s) => { const p = pos[s], isCur = s === cur, seen = hist.includes(s);
+        graph.append(S("rect", { x: p.x - 50, y: p.y - 22, width: 100, height: 44, rx: 10, style: `fill:${isCur ? "var(--hot)" : seen ? "var(--hot-soft)" : s === 15 ? "var(--ok-soft)" : "var(--surface)"};stroke:${s === 15 || s === 0 ? "var(--ink)" : "var(--muted)"};stroke-width:${s === 15 || s === 0 ? 2.5 : 1.5}` }));
+        graph.append(S("text", { x: p.x, y: p.y + 6, "text-anchor": "middle", "font-size": 19, "font-weight": 700, class: "mono", style: isCur ? "fill:#fff" : "" }, label(s))); });
+      graph.append(S("text", { x: 60, y: GH - 6, "text-anchor": "middle", "font-size": 18, style: "fill:var(--muted)" }, "start"), S("text", { x: GW - 60, y: GH - 6, "text-anchor": "middle", "font-size": 18, style: "fill:var(--muted)" }, "goal"));
+      if (dead) out.innerHTML += ` <span class="muted">(Unsafe states are not even in the graph: 16 − 6 = 10 legal states.)</span>`;
+    }
+    draw();
+    return { repaint: draw };
+  });
+
+  /* =======================================================
      1. Blind search on a tree: BFS · DFS · DLS · IDS
      ======================================================= */
   register("treesearch", (host, d) => {

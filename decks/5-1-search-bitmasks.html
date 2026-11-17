@@ -33,67 +33,242 @@
 <p class="byline">Dr. Gildardo Sánchez Ante · Tecnológico de Monterrey<br><span class="tiny">Russell & Norvig, <i>AI: A Modern Approach</i>, ch. 3 · Halim & Halim, <i>Competitive Programming</i>, ch. 3 & 8</span></p>
 
 Note:
-⏱ 0:00–0:02. Unit 5 in four sessions: (5.1) blind search + bitmasks, (5.2) heavy pruning + meet in the middle, (5.3) A* and IDA*, (5.4) local search: hill climbing, simulated annealing, genetic algorithms and ant colonies. Syllabus 5.1 and 5.2 today.
+⏱ 0:00–0:02. Unit 5 in four sessions: (5.1) blind search + bitmasks, (5.2) heavy pruning + meet in the middle, (5.3) A* and IDA*, (5.4) local search: hill climbing, simulated annealing, genetic algorithms and ant colonies. Syllabus 5.1 and 5.2 today. This group has never seen AI search: the first 40 minutes build the idea of an agent that searches a state space (R&N ch. 2–3) before any algorithm.
 
 ---
 
 <!-- .slide: class="activity" -->
-## Warm-up: the 15-puzzle
+## Warm-up: cross the river
 
-<div class="cols">
-<div>
+A farmer must take a **wolf**, a **goat** and a **cabbage** across a river. His boat carries him and **at most one** of them. Left alone, the wolf eats the goat and the goat eats the cabbage. **Can you get everyone across?**
 
-Sam Loyd's 15-puzzle (1880s) has **16!/2 ≈ 10¹³** reachable states.
-
-- What is a **state**? An **action**? The **goal**?
-- Could we store all states in memory?
-
-</div>
-<div class="card">
-<h4>Rule of thumb</h4>
-<p>1 state ≈ 8 bytes → 10¹³ states ≈ 80 TB. We must <b>generate the graph as we explore it</b>.</p>
-</div>
-</div>
-
-<div class="timer" data-seconds="120"></div>
+<div class="w" data-widget="river" data-mode="play" data-h="230"></div>
 
 Note:
-⏱ 0:02–0:07. Pairs discuss for 2 minutes. Elicit: state = arrangement of tiles; actions = move the blank up/down/left/right; goal test; path cost = number of moves. This is the "problem formulation" of your Blind Search slides.
+⏱ 0:02–0:07. No vocabulary yet: just play. Let pairs try for 2–3 minutes (on the projector, with volunteers calling the moves). When someone succeeds, ask the real question of the day: "HOW did you find it? What did you do in your head before pressing a button?" Typical answers: "I imagined what would happen if…", "I tried a move and came back", "I avoided going back to where I was". That is exactly SEARCH: simulating actions in a model of the world before acting. Alcuin of York (8th century) already posed this puzzle.
+
+--
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="3">
+<p class="q">What did you do in your head to solve it?</p>
+<ol><li>Pressed buttons at random until it worked</li><li>Applied one fixed rule ("always take the goat")</li><li>Imagined sequences of moves and their results, discarded the bad ones, and only then acted</li><li>Nothing: the answer is obvious</li></ol>
+<p class="explain">You <b>simulated the future</b> in a mental model: that is what a goal-based agent does by <b>searching</b>.</p>
+</div>
 
 ---
 
 ## Today
 
 <ul class="agenda">
-<li><span class="t">0:07</span> State-space search: the vocabulary</li>
-<li><span class="t">0:15</span> BFS and DFS</li>
-<li><span class="t">0:30</span> <b>Pulse check 1</b></li>
-<li><span class="t">0:35</span> Depth-limited, iterative deepening, uniform cost</li>
-<li><span class="t">0:52</span> <b>Pulse check 2</b></li>
-<li><span class="t">0:57</span> Bitmasks: sets in one integer</li>
-<li><span class="t">1:10</span> Backtracking with bitmasks: N-queens</li>
-<li><span class="t">1:25</span> <b>Pulse check 3</b> · hands-on</li>
-<li><span class="t">1:33</span> <b>Exit ticket</b></li>
+<li><span class="t">0:08</span> Intelligent agents: perceive, think, act</li>
+<li><span class="t">0:19</span> Problem formulation and the state space · <b>Pulse check 1</b></li>
+<li><span class="t">0:40</span> Blind search: BFS and DFS · <b>Pulse check 2</b></li>
+<li><span class="t">0:56</span> Iterative deepening, uniform cost</li>
+<li><span class="t">1:11</span> Bitmasks and N-queens · <b>Pulse check 3</b></li>
+<li><span class="t">1:34</span> <b>Exit ticket</b></li>
 </ul>
 
 ---
 
-## State-space search
+## Agents (Russell & Norvig, ch. 2)
 
-A problem is described by:
+<div class="cols">
+<div>
 
-<div class="cols3">
-<div class="card"><h4>States</h4><p>Initial state, goal test.</p></div>
-<div class="card"><h4>Actions & transition model</h4><p>What can I do, and where does it take me?</p></div>
-<div class="card"><h4>Path cost</h4><p>Sum of step costs.</p></div>
+An **agent** is anything that **perceives** its environment through **sensors** and **acts** on it through **actuators**.
+
+- A human: eyes, ears → hands, voice.
+- A robot vacuum: camera, bump sensor → wheels, brush. <!-- .element: class="fragment" -->
+- A GPS navigator: location, map, traffic → spoken directions. <!-- .element: class="fragment" -->
+- A program: keystrokes, files, packets → screen, files, packets. <!-- .element: class="fragment" -->
+
+</div>
+<div>
+<svg viewBox="0 0 420 250" style="width:100%;max-height:270px">
+<rect x="10" y="20" width="220" height="210" rx="14" style="fill:var(--accent-soft);stroke:var(--accent);stroke-width:2.5"/>
+<text x="120" y="45" text-anchor="middle" font-size="18" font-weight="700" style="fill:var(--accent)">Agent</text>
+<rect x="40" y="65" width="160" height="34" rx="8" style="fill:var(--surface);stroke:var(--ink)"/><text x="120" y="88" text-anchor="middle" font-size="15">Sensors</text>
+<rect x="40" y="113" width="160" height="40" rx="8" style="fill:var(--hot-soft);stroke:var(--hot);stroke-width:2"/><text x="120" y="139" text-anchor="middle" font-size="15" font-weight="700" style="fill:var(--hot)">? (think)</text>
+<rect x="40" y="167" width="160" height="34" rx="8" style="fill:var(--surface);stroke:var(--ink)"/><text x="120" y="190" text-anchor="middle" font-size="15">Actuators</text>
+<line x1="120" y1="99" x2="120" y2="113" style="stroke:var(--ink);stroke-width:2"/><line x1="120" y1="153" x2="120" y2="167" style="stroke:var(--ink);stroke-width:2"/>
+<rect x="300" y="20" width="110" height="210" rx="14" style="fill:var(--ok-soft);stroke:var(--ok);stroke-width:2.5"/>
+<text x="355" y="128" text-anchor="middle" font-size="16" font-weight="700" style="fill:var(--ok)">Environ-</text><text x="355" y="148" text-anchor="middle" font-size="16" font-weight="700" style="fill:var(--ok)">ment</text>
+<line x1="300" y1="82" x2="205" y2="82" style="stroke:var(--ink);stroke-width:2.5"/><polygon points="205,76 193,82 205,88" style="fill:var(--ink)"/><text x="252" y="74" text-anchor="middle" font-size="14">percepts</text>
+<line x1="200" y1="184" x2="288" y2="184" style="stroke:var(--ink);stroke-width:2.5"/><polygon points="288,178 300,184 288,190" style="fill:var(--ink)"/><text x="252" y="176" text-anchor="middle" font-size="14">actions</text>
+</svg>
+<p class="small" style="text-align:center">The interesting part is the <b>?</b>: how does the agent choose its next action?</p>
+</div>
 </div>
 
-- **Expand** a node = generate its children. **Test** = is it a goal? <!-- .element: class="fragment" -->
-- Nodes are **undiscovered**, in the **frontier** (open, fringe), or **expanded** (closed). <!-- .element: class="fragment" -->
-- A *node* is a data structure (state, parent, action, g); a *state* is a configuration. <!-- .element: class="fragment" -->
+Note:
+⏱ 0:08–0:12. R&N Fig. 2.1. A rational agent chooses the action that is expected to maximize its performance measure, given what it has perceived. In the warm-up, YOU were the agent: you perceived the two banks, thought, and acted with the buttons.
+
+---
+
+## How can an agent choose? Four designs
+
+<div class="cols">
+<div class="card"><h4>Simple reflex</h4><p>Fixed rules: <i>if condition then action</i>. Thermostat: "if T &lt; 20 °C, turn on the heater". Fast, but blind to the future.</p></div>
+<div class="card"><h4>Model-based reflex</h4><p>Also keeps an internal <b>model</b> of the world (what it can't see right now). Still reacts with rules.</p></div>
+</div>
+<div class="cols">
+<div class="card fragment" style="border:2px solid var(--hot)"><h4>Goal-based ← today</h4><p>Has a <b>goal</b> and asks: <i>"if I do A, then B, then C… do I reach the goal?"</i> It <b>simulates sequences of actions</b> in its model before acting: that is <b>search</b> (and planning).</p></div>
+<div class="card fragment"><h4>Utility-based / learning</h4><p>Prefers <b>better</b> outcomes, not just any goal (next sessions: costs, A*, optimization). Learning agents improve all of this from experience.</p></div>
+</div>
 
 Note:
-⏱ 0:07–0:12. All blind strategies are the same loop; they differ ONLY in which frontier node is expanded next.
+⏱ 0:12–0:17. R&N 2.4. The river puzzle cannot be solved with a simple rule: the right first move only makes sense because of what comes three moves later. That is why we need to think ahead.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="3">
+<p class="q">Which of these agents really needs to search (think several steps ahead)?</p>
+<ol><li>A thermostat</li><li>An automatic door that opens when someone approaches</li><li>A GPS navigator that must find a route from Guadalajara to San Miguel de Allende</li><li>A smoke alarm</li></ol>
+<p class="explain">The others react to the current percept. The navigator must consider sequences of roads before giving the first instruction.</p>
+</div>
+
+Note:
+⏱ 0:17–0:19. Callback to the wedding example of session 3.2 (Dijkstra): that was already search.
+
+---
+
+## The problem-solving agent
+
+A goal-based agent works in four phases (R&N 3.1):
+
+<div class="cols">
+<div>
+
+1. **Goal formulation** — what do I want? *Everyone on the right bank.*
+2. **Problem formulation** — which states and actions do I consider? *Who is on each bank; boat trips.* <!-- .element: class="fragment" -->
+3. **Search** — simulate sequences of actions in the model until one reaches the goal. <!-- .element: class="fragment" -->
+4. **Execution** — carry out the solution, one action at a time. <!-- .element: class="fragment" -->
+
+</div>
+<div class="card fragment">
+<h4>Abstraction is the key</h4>
+<p>We ignore the color of the boat, the weather, the speed of the river… We keep only what matters to decide. A good formulation makes the search space <b>small</b>.</p>
+</div>
+</div>
+
+Note:
+⏱ 0:19–0:22. In the GPS: goal = destination; states = cities or intersections; actions = drive a road; search = Dijkstra; execution = "in 300 m turn right".
+
+---
+
+## Formulating a problem: five ingredients
+
+<div class="cols">
+<div>
+
+| ingredient | wolf, goat & cabbage |
+|---|---|
+| **states** | who is on each bank, e.g. WC \| FG |
+| **initial state** | FWGC \| ∅ |
+| **actions** | cross alone, or with one passenger from your bank |
+| **transition model** | the result of an action: a new state |
+| **goal test** | ∅ \| FWGC |
+| **path cost** | 1 per crossing |
+
+</div>
+<div class="card fragment">
+<h4>A solution</h4>
+<p>A sequence of actions from the initial state to a goal state. An <b>optimal</b> solution has the lowest path cost.</p>
+<p class="small muted">Unsafe states (the wolf with the goat, or the goat with the cabbage, without the farmer) are simply not allowed.</p>
+</div>
+</div>
+
+Note:
+⏱ 0:22–0:26. R&N 3.1.1. With 4 characters and 2 banks there are 2⁴ = 16 states; 6 of them are unsafe.
+
+---
+
+## The state space: your puzzle as a graph
+
+<div class="w" data-widget="river" data-mode="space" data-h="300"></div>
+
+Note:
+⏱ 0:26–0:31. Each box is a state (left bank | right bank); each line is an action (it works in both directions). Play again: your moves light up as a path in the graph (orange). Going back and forth = walking the same edge twice. "Show a shortest solution": 7 crossings, and there are exactly two of them (the diamond in the middle). Solving the puzzle = finding a path from start to goal in this graph. That is what EVERY search algorithm does.
+
+---
+
+## Usually the graph is too big to draw
+
+<div class="cols">
+<div>
+
+| problem | states |
+|---|---|
+| wolf, goat & cabbage | 10 |
+| 8-puzzle | 181,440 |
+| 15-puzzle (Sam Loyd, 1880s) | 16!/2 ≈ 10¹³ |
+| Rubik's cube | ≈ 4.3·10¹⁹ |
+| chess positions | ≈ 10⁴⁴ |
+
+</div>
+<div class="card">
+<h4>Implicit graphs</h4>
+<p>1 state ≈ 8 bytes → the 15-puzzle needs ≈ 80 TB just to list its states. So we never build the whole graph: we <b>generate it as we explore it</b>, starting from the initial state and applying actions.</p>
+</div>
+</div>
+
+Note:
+⏱ 0:31–0:34. Unlike Unit 3, where the graph was given as input, here the graph is defined by the rules (actions + transition model) and is generated on demand.
+
+---
+
+## Searching: a tree of "what ifs"
+
+<div class="cols">
+<div>
+
+- Start at the initial state. **Expand** it: generate the states reachable with one action.
+- The generated but not yet expanded nodes form the **frontier** (open list). <!-- .element: class="fragment" -->
+- Repeat: pick a frontier node, test if it is a goal, otherwise expand it. <!-- .element: class="fragment" -->
+- A **node** is a data structure (state, parent, action, cost g); a **state** is a configuration. The same state can appear in many nodes (repeated states). <!-- .element: class="fragment" -->
+
+</div>
+<div>
+
+```text
+TreeSearch(problem):
+    frontier = { initial state }
+    loop:
+        if frontier is empty: return failure
+        node = pick one from the frontier
+        if goal(node): return solution(node)
+        add expand(node) to the frontier
+```
+
+<p class="small"><b>The only difference between search strategies:</b> which node is picked next.</p>
+
+</div>
+</div>
+
+Note:
+⏱ 0:34–0:37. Keep an explored set to avoid repeated states (graph search). In the river puzzle without it, the farmer could go back and forth forever.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="predict" data-answer="10" data-tol="0">
+<p class="q">Wolf, goat & cabbage: 2⁴ = 16 possible states. How many are legal (nobody gets eaten)?</p>
+<p class="explain"><b>10</b>: the 6 unsafe ones leave the goat with the wolf or with the cabbage while the farmer is on the other bank.</p>
+</div>
+
+--
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="2">
+<p class="q">The difference between BFS, DFS and the other blind strategies is…</p>
+<ol><li>the problem formulation they use</li><li>which frontier node they expand next</li><li>whether they use a goal test</li><li>the number of states of the problem</li></ol>
+<p class="explain">Same loop, different "pick" rule: FIFO queue, LIFO stack, priority queue…</p>
+</div>
+
+Note:
+⏱ 0:37–0:40.
 
 ---
 
@@ -109,7 +284,7 @@ Note:
 <p class="small">Measured with <b>b</b> = branching factor, <b>d</b> = depth of the shallowest goal, <b>m</b> = maximum depth.</p>
 
 Note:
-⏱ 0:12–0:15.
+⏱ 0:40–0:42.
 
 ---
 
@@ -118,7 +293,7 @@ Note:
 <div class="w" data-widget="treesearch" data-algo="bfs" data-goal="11" data-h="250"></div>
 
 Note:
-⏱ 0:15–0:25. Exactly the tree of your old slides (nodes 1–15). BFS: new nodes at the END of the fringe (FIFO queue). Play, then switch to DFS: new nodes at the FRONT (LIFO stack). Compare "max FRINGE": BFS keeps whole levels in memory; DFS only one path plus siblings. Change the goal to 15 and to 2 and compare node counts.
+⏱ 0:42–0:50. Exactly the tree of your old slides (nodes 1–15). BFS: new nodes at the END of the fringe (FIFO queue). Play, then switch to DFS: new nodes at the FRONT (LIFO stack). Compare "max FRINGE": BFS keeps whole levels in memory; DFS only one path plus siblings. Change the goal to 15 and to 2 and compare node counts.
 
 ---
 
@@ -144,7 +319,7 @@ BFS generates 1 + b + b² + … + b<sup>d</sup> = **O(b<sup>d</sup>)** nodes —
 </div>
 
 Note:
-⏱ 0:25–0:30. R&N, Fig. 3.13. Exponential-complexity search problems cannot be solved by uninformed methods for any but the smallest instances.
+⏱ 0:50–0:53. R&N, Fig. 3.13. Exponential-complexity search problems cannot be solved by uninformed methods for any but the smallest instances.
 
 ---
 
@@ -165,7 +340,7 @@ Note:
 </div>
 
 Note:
-⏱ 0:30–0:35.
+⏱ 0:53–0:56.
 
 ---
 
@@ -186,7 +361,7 @@ Note:
 </div>
 
 Note:
-⏱ 0:35–0:43. Press ↓ for the animation. Play: the dashed orange line marks the current depth limit. Upper levels are regenerated every iteration — is that wasteful?
+⏱ 0:56–1:01. Press ↓ for the animation. Play: the dashed orange line marks the current depth limit. Upper levels are regenerated every iteration — is that wasteful?
 
 
 --
@@ -207,7 +382,7 @@ Nodes generated: $d\ b + (d-1)\ b^2 + \dots + 1 \cdot b^d = O(b^d)$
 </div>
 
 Note:
-⏱ 0:43–0:47. Your slides prove the bound b^d (b/(b−1))².
+⏱ 1:01–1:04. Your slides prove the bound b^d (b/(b−1))².
 
 ---
 
@@ -225,7 +400,7 @@ Note:
 <p class="tiny muted">¹ b finite · ² step costs ≥ ε &gt; 0 · ³ all step costs equal. (R&N, Fig. 3.21)</p>
 
 Note:
-⏱ 0:47–0:52. Bidirectional: two searches meeting in the middle — b^(d/2) + b^(d/2) ≪ b^d. Same idea as "meet in the middle" next session!
+⏱ 1:04–1:08. Bidirectional: two searches meeting in the middle — b^(d/2) + b^(d/2) ≪ b^d. Same idea as "meet in the middle" next session!
 
 ---
 
@@ -246,7 +421,7 @@ Note:
 </div>
 
 Note:
-⏱ 0:52–0:57.
+⏱ 1:08–1:11.
 
 ---
 
@@ -258,7 +433,7 @@ A subset of {0, 1, …, n−1} ↔ an n-bit integer: bit i = 1 ⇔ element i is 
 <p class="small">Union, intersection, membership, "remove the lowest element"… each in <b>one CPU instruction</b>.</p>
 
 Note:
-⏱ 0:57–1:00. Halim & Halim, CP3 §2.2 and §8.2. Works for n ≤ 64 (unsigned long long); std::bitset for more.
+⏱ 1:11–1:13. Halim & Halim, CP3 §2.2 and §8.2. Works for n ≤ 64 (unsigned long long); std::bitset for more.
 
 ---
 
@@ -267,7 +442,7 @@ Note:
 <div class="w" data-widget="bits"></div>
 
 Note:
-⏱ 1:00–1:05. Click bits. Ask before revealing: "what does x & (x−1) do?" (removes the lowest set bit — the loop `for (t = x; t; t &= t − 1)` counts bits). x & −x isolates the lowest set bit (two's complement).
+⏱ 1:13–1:16. Click bits. Ask before revealing: "what does x & (x−1) do?" (removes the lowest set bit — the loop `for (t = x; t; t &= t − 1)` counts bits). x & −x isolates the lowest set bit (two's complement).
 
 ---
 
@@ -276,7 +451,7 @@ Note:
 ```cpp [1-4|6-8|10-12]
 bool has(int S, int i)  { return S >> i & 1; }        // i ∈ S ?
 int  add(int S, int i)  { return S | (1 << i); }      // S ∪ {i}
-int  del(int S, int i)  { return S & ~(1 << i); }     // S ;{i}
+int  del(int S, int i)  { return S & ~(1 << i); }     // S − {i}
 int  low(int S)         { return S & -S; }            // lowest element (as a bit)
 
 for (int S = 0; S < (1 << n); S++) { /* every subset of n items */ }
@@ -288,7 +463,7 @@ __builtin_popcount(S);  __builtin_ctz(S);             // |S| , index of lowest b
 ```
 
 Note:
-⏱ 1:05–1:10. Enumerating all submasks of all masks costs 3ⁿ total. Held–Karp with n = 20: 2²⁰·400 ≈ 4·10⁸ vs 20! ≈ 2.4·10¹⁸.
+⏱ 1:16–1:19. Enumerating all submasks of all masks costs 3ⁿ total. Held–Karp with n = 20: 2²⁰·400 ≈ 4·10⁸ vs 20! ≈ 2.4·10¹⁸.
 
 ---
 
@@ -297,7 +472,7 @@ Note:
 <div class="w" data-widget="nqbits" data-n="6"></div>
 
 Note:
-⏱ 1:10–1:20. One row per level. cols marks occupied columns; ld/rd mark the squares attacked along the diagonals in THIS row. available = ~(cols | ld | rd); iterate with bit = avail & −avail. No board, no loops to check attacks. Press "Count all solutions": N = 13 (73,712 solutions) in well under a second in JavaScript. Compare with the array-based backtracking from session 1.2.
+⏱ 1:19–1:26. One row per level. cols marks occupied columns; ld/rd mark the squares attacked along the diagonals in THIS row. available = ~(cols | ld | rd); iterate with bit = avail & −avail. No board, no loops to check attacks. Press "Count all solutions": N = 13 (73,712 solutions) in well under a second in JavaScript. Compare with the array-based backtracking from session 1.2.
 
 ---
 
@@ -308,7 +483,7 @@ Note:
 </div>
 
 Note:
-⏱ 1:20–1:25. Ask them to type x = 44 in the bit playground (click bits 5, 3, 2) to verify.
+⏱ 1:26–1:28. Ask them to type x = 44 in the bit playground (click bits 5, 3, 2) to verify.
 
 ---
 
@@ -319,14 +494,14 @@ Note:
 2. How many subsets does the loop `for (S = 0; S < 1 << 20; S++)` visit?
 3. In 4-queens, after placing a queen in column 1 (bit 1) of row 0, compute cols, ld, rd for row 1 and the available squares.
 
-<div class="timer" data-seconds="360"></div>
+<div class="timer" data-seconds="300"></div>
 
 <details><summary>Answers</summary>
 1) 11001₂ = 25. 2) 2²⁰ = 1,048,576. 3) bit = 0010; cols = 0010, ld = 0100, rd = 0001 → available = ~0111 &amp; 1111 = <b>1000</b>: only bit 3.
 </details>
 
 Note:
-⏱ 1:25–1:33.
+⏱ 1:28–1:34.
 
 ---
 
@@ -349,12 +524,13 @@ Note:
 </div>
 
 Note:
-⏱ 1:33–1:40. Reading: R&N 3.1–3.4; CP3 2.2 (bit manipulation) and 8.2.
+⏱ 1:34–1:40. Reading: R&N 3.1–3.4; CP3 2.2 (bit manipulation) and 8.2.
 
 ---
 
 ## Takeaways
 
+- A **goal-based agent** thinks ahead by **searching** a **state space** (states + actions + goal test + cost).
 - Search = expand + test; strategies differ only in **which frontier node** comes next.
 - **BFS**: complete, optimal (unit cost), O(bᵈ) memory. **DFS**: O(bm) memory, not complete/optimal.
 - **IDS**: the best blind strategy for unknown depth. **UCS**: optimal for any positive costs.

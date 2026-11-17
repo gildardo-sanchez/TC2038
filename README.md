@@ -195,6 +195,8 @@ Requieren cargar también `assets/js/widgets-search.js` (ya incluido en las sesi
 | `ga` | Algoritmo genético para la mochila (W = 15) | — |
 | `aco` | Colonia de hormigas en el TSP con feromona visible | `data-n` |
 
+Widget adicional de la sesión 5.1: `river` (lobo, cabra y col) con `data-mode="play"` (solo el juego) o `data-mode="space"` (el juego junto al grafo de los 10 estados legales, con tu camino y una solución más corta).
+
 ### Numeración
 
 Las sesiones se numeran **unidad.sesión** (1.1, 1.2 … 4.1 … 5.4), (Unidades 1 a 5).
