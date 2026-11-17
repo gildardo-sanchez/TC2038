@@ -116,6 +116,72 @@
   });
 
   /* =======================================================
+     0c. N-queens with three masks: board + cols / down-right / down-left / free, step by step
+     bit i = column i (cells shown in column order, so they line up with the board)
+     ======================================================= */
+  register("nqmasks", (host, d) => {
+    let n = parseInt(d.n || "4", 10), firstOnly = d.first !== "0";
+    const sv = mkSvg(1100, 400), stepper = Stepper(draw), stats = h("div", { class: "w-stats" });
+    const nb = [4, 5, 6].map((k) => { const b = btn("n = " + k, () => { n = k; setOn(nb, b); build(); }); b.dataset.k = k; return b; });
+    const fb = btn("Stop at first solution", () => { firstOnly = !firstOnly; fb.classList.toggle("on", firstOnly); build(); });
+    host.append(h("div", { class: "w-toolbar" }, ...nb, fb), sv, stepper.bar, stepper.caption, stats);
+    setOn(nb, nb.find((b) => +b.dataset.k === n)); fb.classList.toggle("on", firstOnly);
+    const COL = { cols: "#e8590c", dr: "#9c36b5", dl: "#1971c2", free: "#2b8a3e" };
+    const bin = (x) => x.toString(2).padStart(n, "0");
+    function build() {
+      const all = (1 << n) - 1, frames = []; let sols = 0, stop = false;
+      const F = (o) => { if (frames.length < 900) frames.push(o); };
+      (function solve(row, cols, ld, rd, Q) {
+        if (stop) return;
+        const avail = all & ~(cols | ld | rd);
+        if (row === n) { sols++; F({ Q: Q.slice(), row, cols, ld: ld & all, rd, avail: 0, sol: true, sols, msg: `<span class="ok"><b>Solution ${sols}!</b></span> All ${n} rows have a queen: cols = ${bin(all)}₂. ${firstOnly ? "" : "The recursion continues looking for more."}` }); if (firstOnly) stop = true; return; }
+        F({ Q: Q.slice(), row, cols, ld: ld & all, rd, avail, msg: row === 0 ? `Row 0: nothing is attacked yet, every column is free. free = ~(cols | down-right | down-left) & ${bin(all)}₂.` : `Row ${row}: the masks are shifted one column. free = ~(${bin(cols)} | ${bin(ld & all)} | ${bin(rd)}) = <b>${bin(avail)}</b>₂ ${avail ? "" : `→ <span class="bad">no free column: dead end, backtrack</span>`}` });
+        let a = avail;
+        while (a && !stop) {
+          const bit = a & -a, c = 31 - Math.clz32(bit); a -= bit;
+          F({ Q: Q.concat(c), row, cols, ld: ld & all, rd, avail, pick: c, msg: `Pick the lowest free column: bit = free &amp; −free → column <b>${c}</b>. Next row: cols | bit, (down-right | bit) &lt;&lt; 1, (down-left | bit) &gt;&gt; 1.` });
+          solve(row + 1, cols | bit, (ld | bit) << 1, (rd | bit) >> 1, Q.concat(c));
+          if (!stop) F({ Q: Q.slice(), row, cols, ld: ld & all, rd, avail: a, back: c, msg: `Back in row ${row}: remove the queen from column ${c} and try the next free column${a ? "" : " — none left, return"}.` });
+        }
+      })(0, 0, 0, 0, []);
+      stepper.set(frames);
+    }
+    function draw(f) {
+      sv.replaceChildren();
+      const CS = Math.min(84, 336 / n), BX = 60, BY = 40;
+      for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+        let fill = (r + c) % 2 ? "var(--line)" : "var(--surface)";
+        if (r === f.row && !f.sol) { const b = 1 << c; fill = f.avail & b ? "var(--ok-soft)" : "var(--bad-soft)"; }
+        sv.append(S("rect", { x: BX + c * CS, y: BY + r * CS, width: CS - 4, height: CS - 4, rx: 7, style: `fill:${fill};stroke:${r === f.row && !f.sol ? "var(--ink)" : "none"};stroke-width:1.5` }));
+      }
+      for (let c = 0; c < n; c++) sv.append(S("text", { x: BX + c * CS + CS / 2 - 2, y: BY - 12, "text-anchor": "middle", "font-size": 18, class: "mono", style: "fill:var(--muted)" }, String(c)));
+      for (let r = 0; r < n; r++) sv.append(S("text", { x: BX - 22, y: BY + r * CS + CS / 2 + 4, "text-anchor": "middle", "font-size": 18, class: "mono", style: "fill:var(--muted)" }, String(r)));
+      // diagonal attack rays from placed queens down to the current row
+      f.Q.forEach((c, r) => { if (r >= f.row || f.sol) return; const x = BX + c * CS + CS / 2 - 2, y = BY + r * CS + CS / 2 - 2, k = f.row - r, yy = y + k * CS;
+        [[1, COL.dr], [-1, COL.dl]].forEach(([s, col]) => { const kk = Math.min(k, s > 0 ? n - 1 - c : c); if (!kk) return; sv.append(S("line", { x1: x, y1: y, x2: x + s * kk * CS, y2: y + kk * CS, style: `stroke:${col};stroke-width:2.5;stroke-dasharray:6 5;opacity:.75` })); });
+        sv.append(S("line", { x1: x, y1: y, x2: x, y2: yy, style: `stroke:${COL.cols};stroke-width:2.5;stroke-dasharray:6 5;opacity:.75` })); });
+      f.Q.forEach((c, r) => { const cx = BX + c * CS + CS / 2 - 2, cy = BY + r * CS + CS / 2 - 2;
+        sv.append(S("circle", { cx, cy, r: CS * 0.32, style: `fill:${f.sol ? "var(--ok)" : r === f.row && f.pick === c ? "var(--hot)" : "#8ce99a"};stroke:var(--ink);stroke-width:1.5` }));
+        sv.append(S("text", { x: cx, y: cy + CS * 0.12, "text-anchor": "middle", "font-size": CS * 0.36, "font-weight": 700, style: "fill:#1b4332" }, "Q")); });
+      // masks
+      const MX = 640, MS = Math.min(66, 380 / n), rows = [["columns", f.cols, COL.cols], ["down-right", f.ld, COL.dr], ["down-left", f.rd, COL.dl], ["free", f.avail, COL.free]];
+      rows.forEach(([nm, v, col], k) => {
+        const y = BY + k * (MS + 18) + (k === 3 ? 14 : 0);
+        sv.append(S("text", { x: MX - 14, y: y + MS / 2 + 7, "text-anchor": "end", "font-size": 20, "font-weight": 700, class: "mono", style: `fill:${col}` }, nm));
+        for (let c = 0; c < n; c++) { const on = (v >> c) & 1;
+          sv.append(S("rect", { x: MX + c * (MS + 6), y, width: MS, height: MS, rx: 8, style: `fill:${on ? col : "var(--surface)"};fill-opacity:${on ? 0.25 : 1};stroke:${on ? col : "var(--line)"};stroke-width:${on ? 3 : 1.5}` }));
+          sv.append(S("text", { x: MX + c * (MS + 6) + MS / 2, y: y + MS / 2 + 9, "text-anchor": "middle", "font-size": 26, "font-weight": 700, class: "mono" }, String(on))); }
+        if (k === 3) for (let c = 0; c < n; c++) sv.append(S("text", { x: MX + c * (MS + 6) + MS / 2, y: y + MS + 22, "text-anchor": "middle", "font-size": 16, class: "mono", style: "fill:var(--muted)" }, String(c)));
+      });
+      const ry = BY + 3 * (MS + 18) + 5; sv.append(S("line", { x1: MX, y1: ry, x2: MX + n * (MS + 6) - 6, y2: ry, style: "stroke:var(--muted);stroke-width:1.5" }));
+      sv.append(S("text", { x: 1090, y: BY + 30, "text-anchor": "end", "font-size": 30, "font-weight": 700, class: "mono" }, f.sol ? "solved" : "row " + f.row));
+      stats.replaceChildren(stat("n =", n), stat("queens:", f.Q.length), h("span", {}, "mask cells in column order (bit 0 on the left, under column 0)"));
+    }
+    build();
+    return { stepper };
+  });
+
+  /* =======================================================
      1. Blind search on a tree: BFS · DFS · DLS · IDS
      ======================================================= */
   register("treesearch", (host, d) => {
@@ -284,7 +350,7 @@
       h("span", { class: "mono", style: "font-size:0.6em;margin-left:.6em" }, "= " + v));
     function draw() {
       const m = (1 << n) - 1;
-      const ops = [["x & y", x & y, "intersection"], ["x | y", x | y, "union"], ["x ^ y", x ^ y, "symmetric difference"], ["x & ~y", x & ~y & m, "x minus y"], ["x & (x−1)", x & (x - 1), "remove lowest set bit"], ["x & −x", x & -x & m, "lowest set bit only"], ];
+      const ops = [["x & y", x & y, "intersection"], ["x | y", x | y, "union"], ["x ^ y", x ^ y, "XOR: symmetric difference"], ["x & ~y", x & ~y & m, "x minus y"], ["x & (x−1)", x & (x - 1), "remove lowest set bit"], ["x & −x", x & -x & m, "lowest set bit only"], ];
       let pc = 0; for (let t = x; t; t &= t - 1) pc++;
       out.replaceChildren(
         
