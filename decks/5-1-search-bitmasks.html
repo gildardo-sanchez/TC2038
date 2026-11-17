@@ -215,7 +215,16 @@ Note:
 </div>
 
 Note:
-⏱ 0:31–0:34. Unlike Unit 3, where the graph was given as input, here the graph is defined by the rules (actions + transition model) and is generated on demand.
+⏱ 0:31–0:34. Unlike Unit 3, where the graph was given as input, here the graph is defined by the rules (actions + transition model) and is generated on demand. Press ↓ to play the 15-puzzle.
+
+--
+
+## Play the 15-puzzle
+
+<div class="w" data-widget="puzzle15"></div>
+
+Note:
+Optional, 3–5 minutes (or leave it open while students arrive). Volunteers play "Easy" with the standard goal; then change the goal (spiral, columns…) — same puzzle, different goal test. Ask: "what is a state here? an action?" (an arrangement of the 16 squares; moving the GAP up/down/left/right: at most 4 actions, so b ≤ 4). Finish with Loyd's $1,000 challenge (14 and 15 swapped): the widget shows that it is unreachable. Every move preserves a parity invariant, so the 16! arrangements split into two halves that never meet — that is why the state space has 16!/2 ≈ 10¹³ reachable states. Hard (random) starts need up to 80 moves even for an optimal solver; in session 5.3 IDA* solves them.
 
 ---
 

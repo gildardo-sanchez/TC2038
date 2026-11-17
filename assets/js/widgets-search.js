@@ -74,6 +74,48 @@
   });
 
   /* =======================================================
+     0b. Play the 15-puzzle: random (solvable) start, several goals, Loyd's 14–15 challenge
+     ======================================================= */
+  register("puzzle15", (host, d) => {
+    const GOALS = {
+      standard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 0],
+      blankfirst: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+      spiral: [1, 2, 3, 4, 12, 13, 14, 5, 11, 0, 15, 6, 10, 9, 8, 7],
+      columns: [1, 5, 9, 13, 2, 6, 10, 14, 3, 7, 11, 15, 4, 8, 12, 0],
+      snake: [1, 2, 3, 4, 8, 7, 6, 5, 9, 10, 11, 12, 0, 15, 14, 13]
+    };
+    const GN = { standard: "Standard", blankfirst: "Blank first", spiral: "Spiral", columns: "Columns", snake: "Snake" };
+    let gk = d.goal || "standard", goal = GOALS[gk], board = [], moves = 0, loyd = false, depth = 30;
+    const nb = (i) => [i - 4, i + 4, i % 4 ? i - 1 : -1, i % 4 < 3 ? i + 1 : -1].filter((j) => j >= 0 && j < 16);
+    const parity = (b) => { const a = b.filter((x) => x); let inv = 0; for (let i = 0; i < a.length; i++) for (let j = i + 1; j < a.length; j++) if (a[i] > a[j]) inv++; return (inv + (3 - Math.floor(b.indexOf(0) / 4))) % 2; };
+    function scramble() {
+      board = goal.slice(); let prev = -1;
+      for (let k = 0; k < depth; k++) { const z = board.indexOf(0), opts = nb(z).filter((j) => j !== prev); const j = opts[Math.floor(Math.random() * opts.length)]; [board[z], board[j]] = [board[j], board[z]]; prev = z; }
+      moves = 0; loyd = false; draw();
+    }
+    const cell = (v, ok, small, click) => { const e = h("div", { style: `display:flex;align-items:center;justify-content:center;border-radius:${small ? 5 : 10}px;font-weight:700;font-family:var(--mono);font-size:${small ? "0.55em" : "1.1em"};${v ? `background:${ok ? "var(--ok-soft)" : "var(--surface)"};border:2px solid ${ok ? "var(--ok)" : "var(--accent)"};cursor:${click ? "pointer" : "default"};` : "background:transparent;"}` }, v ? String(v) : ""); if (click) e.addEventListener("click", click); return e; };
+    const grid = (size, gap) => h("div", { style: `display:grid;grid-template-columns:repeat(4,${size});grid-auto-rows:${size};gap:${gap};padding:${gap};background:var(--line);border-radius:12px;width:max-content` });
+    const big = grid("78px", "6px"), small = grid("30px", "3px"), out = h("div", { class: "w-caption" });
+    const gb = Object.keys(GOALS).map((k) => { const b = btn(GN[k], () => { gk = k; goal = GOALS[k]; setOn(gb, b); scramble(); }); b.dataset.k = k; return b; });
+    const db = [["Easy (15 moves)", 15], ["Medium (40)", 40], ["Hard (random)", 1000]].map(([nm, dd]) => { const b = btn(nm, () => { depth = dd; setOn(db, b); scramble(); }); b.dataset.d = dd; return b; });
+    host.append(h("div", { class: "w-toolbar" }, h("span", { class: "tiny muted" }, "goal:"), ...gb), h("div", { class: "w-toolbar" }, h("span", { class: "tiny muted" }, "start:"), ...db, btn("Loyd's $1,000 challenge", () => { gk = "standard"; goal = GOALS.standard; setOn(gb, gb[0]); board = goal.slice(); [board[13], board[14]] = [board[14], board[13]]; moves = 0; loyd = true; draw(); })),
+      h("div", { style: "display:flex;gap:2.5em;align-items:center;justify-content:center" }, h("div", { style: "text-align:center" }, h("div", { class: "tiny muted" }, "your board (click a tile next to the gap)"), big), h("div", { style: "text-align:center" }, h("div", { class: "tiny muted" }, "goal"), small)), out);
+    setOn(gb, gb.find((b) => b.dataset.k === gk)); setOn(db, db[0]); depth = 15;
+    function click(i) {
+      const z = board.indexOf(0); if (!nb(z).includes(i)) return;
+      [board[z], board[i]] = [board[i], board[z]]; moves++; draw();
+    }
+    function draw() {
+      big.replaceChildren(...board.map((v, i) => cell(v, v && v === goal[i], false, () => click(i))));
+      small.replaceChildren(...goal.map((v) => cell(v, false, true)));
+      const done = board.every((v, i) => v === goal[i]), placed = board.filter((v, i) => v && v === goal[i]).length, solv = parity(board) === parity(goal);
+      out.innerHTML = done ? `<span class="ok"><b>Solved in ${moves} moves!</b></span> (Optimal solutions of random 15-puzzles need up to 80 moves; computers find them with IDA*, session 5.3.)`
+        : `Moves: <b>${moves}</b> · tiles in place: <b>${placed}/15</b> · ` + (solv ? `reachable from here: <span class="ok">yes</span>` : `reachable from here: <span class="bad"><b>no!</b></span> ${loyd ? "Sam Loyd offered $1,000 (1880s) for solving this one. Nobody ever collected: every move keeps the <b>parity</b> of the permutation (plus the row of the gap), so exactly half of the 16! arrangements can never reach the goal." : ""}`);
+    }
+    scramble();
+  });
+
+  /* =======================================================
      1. Blind search on a tree: BFS · DFS · DLS · IDS
      ======================================================= */
   register("treesearch", (host, d) => {
