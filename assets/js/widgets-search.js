@@ -109,7 +109,7 @@
       big.replaceChildren(...board.map((v, i) => cell(v, v && v === goal[i], false, () => click(i))));
       small.replaceChildren(...goal.map((v) => cell(v, false, true)));
       const done = board.every((v, i) => v === goal[i]), placed = board.filter((v, i) => v && v === goal[i]).length, solv = parity(board) === parity(goal);
-      out.innerHTML = done ? `<span class="ok"><b>Solved in ${moves} moves!</b></span> (Optimal solutions of random 15-puzzles need up to 80 moves; computers find them with IDA*, session 5.3.)`
+      out.innerHTML = done ? `<span class="ok"><b>Solved in ${moves} moves!</b></span> (Optimal solutions of random 15-puzzles need up to 80 moves; computers find them with IDA*, session 5.2.)`
         : `Moves: <b>${moves}</b> · tiles in place: <b>${placed}/15</b> · ` + (solv ? `reachable from here: <span class="ok">yes</span>` : `reachable from here: <span class="bad"><b>no!</b></span> ${loyd ? "Sam Loyd offered $1,000 (1880s) for solving this one. Nobody ever collected: every move keeps the <b>parity</b> of the permutation (plus the row of the gap), so exactly half of the 16! arrangements can never reach the goal." : ""}`);
     }
     scramble();
@@ -179,6 +179,78 @@
     }
     build();
     return { stepper };
+  });
+
+  /* =======================================================
+     0d. Romania (Russell & Norvig, Fig. 3.2 / 3.22): greedy best-first vs A* vs uniform cost, Arad → Bucharest
+     ======================================================= */
+  const RO = {
+    pos: { Arad: [91, 492], Bucharest: [400, 327], Craiova: [253, 288], Drobeta: [165, 299], Eforie: [562, 293], Fagaras: [305, 449], Giurgiu: [375, 270], Hirsova: [534, 350], Iasi: [473, 506], Lugoj: [165, 379], Mehadia: [168, 339], Neamt: [406, 537], Oradea: [131, 571], Pitesti: [320, 368], "Rimnicu Vilcea": [233, 410], Sibiu: [207, 457], Timisoara: [94, 410], Urziceni: [456, 350], Vaslui: [509, 444], Zerind: [108, 531] },
+    roads: [["Arad", "Zerind", 75], ["Arad", "Sibiu", 140], ["Arad", "Timisoara", 118], ["Bucharest", "Urziceni", 85], ["Bucharest", "Pitesti", 101], ["Bucharest", "Giurgiu", 90], ["Bucharest", "Fagaras", 211], ["Craiova", "Drobeta", 120], ["Craiova", "Rimnicu Vilcea", 146], ["Craiova", "Pitesti", 138], ["Drobeta", "Mehadia", 75], ["Eforie", "Hirsova", 86], ["Fagaras", "Sibiu", 99], ["Hirsova", "Urziceni", 98], ["Iasi", "Vaslui", 92], ["Iasi", "Neamt", 87], ["Lugoj", "Timisoara", 111], ["Lugoj", "Mehadia", 70], ["Oradea", "Zerind", 71], ["Oradea", "Sibiu", 151], ["Pitesti", "Rimnicu Vilcea", 97], ["Rimnicu Vilcea", "Sibiu", 80], ["Urziceni", "Vaslui", 142]],
+    h: { Arad: 366, Bucharest: 0, Craiova: 160, Drobeta: 242, Eforie: 161, Fagaras: 176, Giurgiu: 77, Hirsova: 151, Iasi: 226, Lugoj: 244, Mehadia: 241, Neamt: 234, Oradea: 380, Pitesti: 100, "Rimnicu Vilcea": 193, Sibiu: 253, Timisoara: 329, Urziceni: 80, Vaslui: 199, Zerind: 374 }
+  };
+  register("romania", (host, d) => {
+    let algo = d.algo || "astar", start = d.start || "Arad", showH = d.h !== "0";
+    const goal = "Bucharest", sv = mkSvg(680, 395), side = h("div", { style: "font-size:0.58em" }), stepper = Stepper(draw);
+    const adj = {}; Object.keys(RO.pos).forEach((c) => (adj[c] = [])); RO.roads.forEach(([a, b, w]) => { adj[a].push([b, w]); adj[b].push([a, w]); });
+    const ab = [["greedy", "Greedy best-first: f = h"], ["astar", "A*: f = g + h"], ["ucs", "Uniform cost: f = g"]].map(([k, nm]) => { const b = btn(nm, () => { algo = k; setOn(ab, b); build(); }); b.dataset.k = k; return b; });
+    const sel = h("select", {}, ...Object.keys(RO.pos).sort().filter((c) => c !== goal).map((c) => h("option", { value: c }, "start: " + c))); sel.value = start;
+    sel.addEventListener("change", () => { start = sel.value; build(); }); sel.addEventListener("keydown", (e) => e.stopPropagation());
+    const hb = btn("h = straight-line distance to Bucharest", () => { showH = !showH; hb.classList.toggle("on", showH); stepper.repaint(); });
+    const mapOnly = d.mode === "map";
+    if (mapOnly) host.append(sv);
+    else { host.append(h("div", { class: "w-toolbar" }, ...ab, sel, hb)); host.append(h("div", { style: "display:grid;grid-template-columns:1.75fr 1fr;gap:.6em;align-items:start" }, sv, side), stepper.bar, stepper.caption); }
+    setOn(ab, ab.find((b) => b.dataset.k === algo)); hb.classList.toggle("on", showH);
+    const P = (c) => ({ x: (RO.pos[c][0] - 70) * 1.12 + 75, y: (590 - RO.pos[c][1]) * 1.1 + 18 });
+    const LAB = { Arad: "L", Zerind: "L", Timisoara: "L", Bucharest: "B", Urziceni: "T" };
+    const fOf = (g, c) => (algo === "greedy" ? RO.h[c] : algo === "ucs" ? g : g + RO.h[c]);
+    function build() {
+      const frames = [], fr = new Map([[start, { g: 0, par: null }]]), closed = new Set(); let gen = 1;
+      const snap = (extra) => Object.assign({ fr: [...fr.entries()].map(([c, v]) => ({ c, g: v.g, par: v.par, f: fOf(v.g, c) })).sort((a, b) => a.f - b.f || a.c.localeCompare(b.c)), closed: [...closed], tree: new Map([...tree]) }, extra);
+      const tree = new Map([[start, null]]);
+      frames.push(snap({ msg: `Start in ${start}: f(${start}) = ${algo === "greedy" ? `h = ${RO.h[start]}` : algo === "ucs" ? "g = 0" : `0 + ${RO.h[start]} = ${RO.h[start]}`}.` }));
+      while (fr.size) {
+        let best = null; fr.forEach((v, c) => { const f = fOf(v.g, c); if (!best || f < best.f || (f === best.f && c < best.c)) best = { c, f, g: v.g }; });
+        const { c, g } = best, par = fr.get(c).par; fr.delete(c);
+        if (c === goal) {
+          const path = [c]; let x = c; while (tree.get(x)) { x = tree.get(x); path.unshift(x); }
+          frames.push(snap({ cur: c, path, cost: g, msg: `Pop <b>Bucharest</b> (f = ${best.f}): goal reached. Route ${path.join(" → ")}, cost <b>${g} km</b>${algo === "greedy" ? ` — <span class="bad">not optimal</span> (the best route costs 418 km).` : ` — <span class="ok">optimal</span>.`} Expanded ${closed.size} cities, generated ${gen} nodes.` }));
+          break;
+        }
+        closed.add(c);
+        const added = [];
+        adj[c].forEach(([n, w]) => { if (closed.has(n)) return; const ng = g + w; const old = fr.get(n);
+          if (algo === "greedy" ? !old : !old || ng < old.g) { fr.set(n, { g: ng, par: c }); tree.set(n, c); gen++; added.push(`${old ? "cheaper path to " : ""}${n} (${algo === "greedy" ? `h = ${RO.h[n]}` : algo === "ucs" ? `g = ${ng}` : `${ng} + ${RO.h[n]} = ${ng + RO.h[n]}`})`); } });
+        frames.push(snap({ cur: c, msg: `Expand <b>${c}</b> (lowest f = ${best.f}). New or cheaper in the frontier: ${added.join(", ") || "nothing"}.` }));
+        if (frames.length > 80) break;
+      }
+      stepper.set(frames);
+    }
+    function draw(f) {
+      sv.replaceChildren();
+      const pathE = new Set(); if (f.path) for (let i = 0; i + 1 < f.path.length; i++) pathE.add([f.path[i], f.path[i + 1]].sort().join("|"));
+      const treeE = new Set(); f.tree.forEach((p, c) => { if (p && (f.closed.includes(c) || f.fr.some((e) => e.c === c) || c === f.cur)) treeE.add([p, c].sort().join("|")); });
+      RO.roads.forEach(([a, b, w]) => { const A = P(a), B = P(b), k = [a, b].sort().join("|");
+        const st = pathE.has(k) ? "stroke:var(--ok);stroke-width:6" : treeE.has(k) ? "stroke:var(--accent);stroke-width:3.5" : "stroke:var(--line);stroke-width:2.5";
+        sv.append(S("line", { x1: A.x, y1: A.y, x2: B.x, y2: B.y, style: st }));
+        sv.append(S("text", { x: (A.x + B.x) / 2, y: (A.y + B.y) / 2 - 3, "text-anchor": "middle", "font-size": 13, class: "mono", style: "fill:var(--muted)" }, String(w))); });
+      const inFr = new Map(f.fr.map((e) => [e.c, e]));
+      Object.keys(RO.pos).forEach((c) => { const p = P(c), isCur = c === f.cur, cl = f.closed.includes(c), fe = inFr.get(c);
+        sv.append(S("circle", { cx: p.x, cy: p.y, r: isCur ? 10 : 7.5, style: `fill:${isCur ? "var(--hot)" : c === goal ? "var(--ok)" : cl ? "var(--muted)" : fe ? "var(--accent)" : "var(--surface)"};stroke:var(--ink);stroke-width:1.5` }));
+        const lp = LAB[c] || "R", lines = [[c, "fill:var(--ink)", 16, isCur || fe ? 700 : 400]];
+        if (showH) lines.push(["h=" + RO.h[c], "fill:var(--hot)", 13.5, 400]);
+        if (fe) lines.push(["f=" + fe.f, "fill:var(--accent)", 14, 700]);
+        lines.forEach(([txt, st, fs, fw], k) => {
+          const x = lp === "L" ? p.x - 12 : lp === "R" ? p.x + 12 : p.x, anchor = lp === "L" ? "end" : lp === "R" ? "start" : "middle";
+          const y = lp === "B" ? p.y + 24 + k * 15 : lp === "T" ? p.y - 14 - (lines.length - 1 - k) * 15 : p.y - 4 + k * 14;
+          sv.append(S("text", { x, y, "text-anchor": anchor, "font-size": fs, "font-weight": fw, class: k ? "mono" : null, style: st }, txt)); }); });
+      const rows = f.fr.map((e, i) => h("tr", { style: i === 0 ? "background:var(--accent-soft);font-weight:700" : "" }, h("td", {}, e.c), h("td", { class: "mono" }, String(e.g)), h("td", { class: "mono" }, String(RO.h[e.c])), h("td", { class: "mono" }, String(e.f))));
+      side.replaceChildren(h("b", {}, "Frontier (priority queue, sorted by f)"), h("table", { class: "tight", style: "margin:.3em 0" }, h("tr", {}, h("th", {}, "city"), h("th", {}, "g"), h("th", {}, "h"), h("th", {}, algo === "greedy" ? "f = h" : algo === "ucs" ? "f = g" : "f = g + h")), ...rows),
+        h("div", { class: "tiny muted" }, "Expanded: " + (f.closed.join(", ") || "—")),
+        f.path ? h("div", { style: "margin-top:.4em" }, h("b", {}, `Route: ${f.cost} km`)) : "");
+    }
+    if (mapOnly) draw({ fr: [], closed: [], tree: new Map() }); else build();
+    return mapOnly ? { repaint: () => draw({ fr: [], closed: [], tree: new Map() }) } : { stepper };
   });
 
   /* =======================================================

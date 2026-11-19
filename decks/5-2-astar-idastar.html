@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Informed Search: A* and IDA* · TC2038</title>
+<meta name="description" content="TC2038 Analysis and Design of Advanced Algorithms — Informed Search: A* and IDA*">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<link rel="stylesheet" href="../assets/css/course.css">
+</head>
+<body>
+<div class="reveal">
+<div class="slides">
+<!--
+  SLIDES ARE WRITTEN IN MARKDOWN BELOW
+  ---   new horizontal slide        --    new vertical slide (press ↓)
+  Note: everything after this line is a speaker note (press S)
+  Keep HTML blocks (quizzes, widgets) flush-left and without blank lines inside.
+-->
+<section data-markdown data-separator="^---$" data-separator-vertical="^--$" data-separator-notes="^Note:">
+<textarea data-template>
+<!-- .slide: class="title" -->
+<span class="kicker">TC2038 · Unit 5 · Session 5.2</span>
+
+# Informed search: A* and IDA*
+
+### Give the search a compass
+
+<p class="byline">Dr. Gildardo Sánchez Ante · Tecnológico de Monterrey<br><span class="tiny">Russell & Norvig, <i>AI: A Modern Approach</i>, §3.5–3.6 · Hart, Nilsson & Raphael (1968) · Korf (1985)</span></p>
+
+Note:
+⏱ 0:00–0:02. Syllabus 5.5, taught right after blind search (5.1) on purpose: same loop, same frontier, but now the agent has extra knowledge — an ESTIMATE of how far it is from the goal. Running example: Russell & Norvig's Romania map, Arad → Bucharest.
+
+---
+
+<!-- .slide: class="activity" -->
+## Warm-up: from Arad to Bucharest
+
+You are in **Arad** and must drive to **Bucharest**. You have the road map (km on each road) and a friend gives you one more thing: the **straight-line distance** from every city to Bucharest (orange, h).
+
+<div class="w" data-widget="romania" data-mode="map" data-h="390"></div>
+
+Note:
+⏱ 0:02–0:07. Pairs, 2 minutes: "Which neighbor of Arad would you explore first, and why?" Collect answers. Two different arguments usually appear: (a) "Sibiu, because it is the closest to Bucharest (253)" and (b) "Sibiu, because 140 + 253 = 393 is the smallest total". Same city, two different reasons — those two reasons are exactly greedy best-first and A*. Keep both on the board; today we see when they disagree.
+
+--
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="3">
+<p class="q">From Arad: Sibiu (road 140 km, h = 253), Timisoara (118, h = 329), Zerind (75, h = 374). Which one minimizes "km driven so far + straight-line km still to go"?</p>
+<ol><li>Zerind: 75 + 374 = 449</li><li>Timisoara: 118 + 329 = 447</li><li>Sibiu: 140 + 253 = 393</li><li>They are all the same</li></ol>
+<p class="explain">That sum is A*'s f(n) = g(n) + h(n). Choosing only by h (253) also picks Sibiu here… but not always.</p>
+</div>
+
+---
+
+## Today
+
+<ul class="agenda">
+<li><span class="t">0:08</span> Heuristics and best-first search</li>
+<li><span class="t">0:15</span> Greedy best-first on the Romania map · <b>Pulse check 1</b></li>
+<li><span class="t">0:28</span> A* on the same map · <b>Pulse check 2</b></li>
+<li><span class="t">0:42</span> The grid lab</li>
+<li><span class="t">0:50</span> When is A* optimal? Admissible & consistent h</li>
+<li><span class="t">1:05</span> Designing heuristics · IDA* · <b>Pulse check 3</b></li>
+<li><span class="t">1:35</span> <b>Exit ticket</b></li>
+</ul>
+
+---
+
+## Heuristics
+
+<div class="cols">
+<div>
+
+<p class="small muted"><i>"A rule of thumb, simplification, or educated guess that reduces or limits the search for solutions in domains that are difficult and poorly understood."</i></p>
+
+- **h(n)** = **estimated** cost of the cheapest path from node n to a goal.
+- Any non-negative, problem-specific function, with one rule: **h(goal) = 0**. <!-- .element: class="fragment" -->
+- It is **extra knowledge**: the straight-line distance h<sub>SLD</sub> cannot be computed from the road map alone. <!-- .element: class="fragment" -->
+
+</div>
+<div class="card fragment">
+<h4>Everyday heuristics</h4>
+<p>Straight-line distance on a map · Manhattan distance on a grid · misplaced tiles in a puzzle.</p>
+<p class="muted">Blind search only knows "goal / not goal". A heuristic is a <b>compass</b>.</p>
+</div>
+</div>
+
+Note:
+⏱ 0:08–0:12. Your "A heuristic function" and "Heuristic functions" slides.
+
+---
+
+## Best-first search
+
+Same loop as blind search; the frontier is a **priority queue** ordered by an **evaluation function f(n)**:
+
+<div class="cols3">
+<div class="card fragment"><h4>Uniform cost</h4><p>f(n) = g(n)</p><p class="muted">cost so far — blind, optimal</p></div>
+<div class="card fragment"><h4>Greedy best-first</h4><p>f(n) = h(n)</p><p class="muted">"go to whatever looks closest to the goal"</p></div>
+<div class="card fragment"><h4>A*</h4><p>f(n) = g(n) + h(n)</p><p class="muted">estimated cost of the cheapest solution <b>through</b> n</p></div>
+</div>
+
+Note:
+⏱ 0:12–0:15. Your "Best-first search" slide. Everything today is the 5.1 loop with a different "pick" rule.
+
+---
+
+## Greedy best-first: f(n) = h(n)
+
+<div class="w" data-widget="romania" data-algo="greedy" data-h="350"></div>
+
+Note:
+⏱ 0:15–0:22. Your greedy sequence: Arad (366) → Sibiu (253) → Fagaras (176) → Bucharest (0). Only 3 expansions — fast! Ask before each step: "who comes out of the queue next?". Final route Arad–Sibiu–Fagaras–Bucharest = 140 + 99 + 211 = 450 km. Now ask: is there a shorter route? (Arad–Sibiu–Rimnicu Vilcea–Pitesti–Bucharest = 418 km.)
+
+---
+
+## Greedy best-first: evaluation
+
+<div class="cols">
+<div>
+
+- **Optimal? No.** 450 km instead of 418: it never looked back at how much it had already driven.
+- **Complete? Not as tree search.** From Iasi to Fagaras: Neamt is closer to Fagaras in straight line, but it is a dead end — Iasi → Neamt → Iasi → Neamt… forever. (Graph search with an explored set fixes the loop in finite spaces.) <!-- .element: class="fragment" -->
+- **Time and space:** O(b<sup>m</sup>) in the worst case (m = maximum depth), like DFS. A good h can reduce this dramatically. <!-- .element: class="fragment" -->
+
+</div>
+<div class="card fragment">
+<h4>The lesson</h4>
+<p>Looking only ahead (h) is fast but myopic. A* also looks <b>behind</b> (g): it avoids paths that are already expensive.</p>
+</div>
+</div>
+
+Note:
+⏱ 0:22–0:25. Your "Greedy search, evaluation" slides.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="predict" data-answer="32" data-tol="0">
+<p class="q">Greedy found a 450 km route; the best one is 418 km. How many km longer is greedy's route?</p>
+<p class="explain">450 − 418 = <b>32 km</b>. Fagaras looked closer (h = 176 vs 193 for Rimnicu Vilcea), but the road Fagaras → Bucharest is long (211 km).</p>
+</div>
+
+Note:
+⏱ 0:25–0:28.
+
+---
+
+## A*: f(n) = g(n) + h(n)
+
+<div class="w" data-widget="romania" data-algo="astar" data-h="350"></div>
+
+Note:
+⏱ 0:28–0:38. Your A* sequence (R&N Fig. 3.24). Expand Arad (366) → Sibiu (393) → Rimnicu Vilcea (413) → Fagaras (415) → Pitesti (417) → Bucharest (418). The key moment: after expanding Fagaras, Bucharest enters the frontier with f = 450 — but A* does NOT stop: the goal test is done when a node is popped, and Pitesti (417) is still cheaper. Then Bucharest re-enters with f = 418 and is popped: optimal. Point at the "f" column: the values along the optimal path never exceed 418. Switch the buttons to compare with greedy and uniform cost (UCS expands many more cities, including some away from Bucharest). Note: some older slides use h(Fagaras) = 179 and h(Rimnicu Vilcea) = 192; the book's values are 176 and 193.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="2">
+<p class="q">After expanding Fagaras, Bucharest is already in the frontier with f = 450. Why doesn't A* stop there?</p>
+<ol><li>Because Bucharest was generated by a bad heuristic</li><li>A goal is only accepted when it is taken out of the queue — and Pitesti (f = 417) is still cheaper</li><li>Because A* always expands every city</li><li>Because 450 is not a multiple of the road lengths</li></ol>
+<p class="explain">Testing the goal on expansion (not on generation) is what makes A* optimal: every path with f &lt; 450 must be checked first.</p>
+</div>
+
+--
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="1">
+<p class="q">With h(n) = 0 for every node, A* behaves like…</p>
+<ol><li>Uniform-cost search (Dijkstra)</li><li>Greedy best-first</li><li>DFS</li><li>IDS</li></ol>
+<p class="explain">f = g. A* generalizes Dijkstra; a good h focuses the search toward the goal.</p>
+</div>
+
+Note:
+⏱ 0:38–0:42.
+
+---
+
+## Grid lab
+
+<div class="w" data-widget="gridsearch" data-algo="astar" data-preset="wall" data-h="300"></div>
+
+Note:
+⏱ 0:42–0:50. Same three algorithms on a grid with Manhattan distance. The widget opens at the final state; press ↺ then Play. Wall preset: greedy dives into the U-shaped trap; A* explores much less than BFS and still finds a shortest path. Mud preset (cost 5): BFS ignores costs; Dijkstra and A* go around. Weighted A* (w = 3): far fewer expansions, path may be slightly longer.
+
+---
+
+## When is A* optimal?
+
+<div class="cols">
+<div>
+
+**Admissible:** h never overestimates.
+
+$$h(n) \le h^\ast(n) \quad \text{(true cost to the goal)}$$
+
+**Consistent (monotone):** triangle inequality.
+
+$$h(n) \le c(n, n') + h(n')$$
+
+</div>
+<div class="card">
+<h4>Theorems (R&N §3.5)</h4>
+<p>Tree search: admissible ⇒ A* optimal.</p>
+<p>Graph search: consistent ⇒ A* optimal, and f never decreases along a path.</p>
+<p>Consistent ⇒ admissible.</p>
+</div>
+</div>
+
+Note:
+⏱ 0:50–0:56. Intuition: an optimistic h never lets A* close the door on the optimal path. Proof sketch: when a suboptimal goal G2 is popped, some node n on the optimal path is in the frontier with f(n) ≤ C* < f(G2) — contradiction.
+
+---
+
+## Contours, efficiency, cost
+
+<div class="cols">
+<div>
+
+- A* expands all nodes with f(n) &lt; C* and some with f(n) = C*: its explored region looks like **contours** stretched toward the goal.
+- **Optimally efficient**: no optimal algorithm with the same h expands fewer nodes (up to ties).
+- **Problem: memory.** A* keeps every generated node — exponential space.
+
+</div>
+<div class="card">
+<h4>Weighted A*</h4>
+<p>f = g + w·h (w &gt; 1): explores far less, and the solution costs at most <b>w × optimal</b>. Used in games and robotics when "good enough, now" wins.</p>
+</div>
+</div>
+
+Note:
+⏱ 0:56–1:01. Video games (pathfinding), GPS routing (with landmarks/contraction hierarchies), robotics, puzzle solving, NLP decoding.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="4">
+<p class="q">Grid with 4-neighbor moves of cost 1. Which heuristic is <b>not</b> admissible?</p>
+<ol><li>Manhattan distance</li><li>Euclidean distance</li><li>h = 0</li><li>2 × Manhattan distance</li></ol>
+<p class="explain">It can overestimate (e.g., by 2× in an open field), so A* may return a suboptimal path — that's weighted A*.</p>
+</div>
+
+--
+
+<!-- .slide: class="checkpoint" -->
+<div class="predict" data-answer="12" data-tol="0">
+<p class="q">In the grid lab, S = (3, 7), G = (22, 7) and there's a wall in between. h(S) with Manhattan distance = |3 − 22| + |7 − 7| = 19. The optimal path around the wall costs 31. By how much did h(S) underestimate?</p>
+<p class="explain">31 − 19 = <b>12</b>. Underestimating is allowed (admissible); the closer to the truth, the fewer nodes A* expands.</p>
+</div>
+
+Note:
+⏱ 1:01–1:05. If students changed the map, numbers differ; adapt.
+
+---
+
+## Designing heuristics: the 8-puzzle
+
+<div class="cols">
+<div>
+
+- **h₁** = number of misplaced tiles.
+- **h₂** = sum of Manhattan distances of tiles to their goal squares.
+- Both are exact costs of **relaxed problems** (tiles can jump anywhere / tiles can move through each other) ⇒ admissible.
+- h₂ ≥ h₁ always: h₂ **dominates** h₁ ⇒ A* with h₂ never expands more nodes.
+
+</div>
+<div>
+
+| depth d | IDS | A*(h₁) | A*(h₂) |
+|---|---|---|---|
+| 6 | 680 | 20 | 18 |
+| 12 | 3,644,035 | 227 | 73 |
+| 24 | — | 39,135 | 1,641 |
+
+<p class="tiny muted">Average nodes generated, R&N Fig. 3.29.</p>
+
+</div>
+</div>
+
+Note:
+⏱ 1:05–1:12. 9!/2 = 181,440 reachable states. Pattern databases (store exact costs of sub-puzzles) push this much further: they solve the 15-puzzle and Rubik's cube optimally.
+
+---
+
+## IDA*: iterative deepening A*
+
+<div class="cols">
+<div>
+
+1. bound ← h(start)
+2. DFS, but prune any node with **f = g + h &gt; bound**.
+3. Not found? bound ← **smallest f that exceeded it**; repeat.
+
+</div>
+<div class="card">
+<h4>Why?</h4>
+<p>Same optimality as A* (admissible h), but memory <b>O(d)</b> instead of exponential. Korf (1985): first optimal solutions of random 15-puzzles.</p>
+</div>
+</div>
+
+```cpp
+int search(int g, int bound) {            // returns FOUND or the next bound
+    int f = g + h(state);
+    if (f > bound) return f;
+    if (isGoal(state)) return FOUND;
+    int next = INF;
+    for (move m : moves(state)) { apply(m); int t = search(g + 1, bound); undo(m);
+        if (t == FOUND) return FOUND;  next = min(next, t); }
+    return next;
+}
+```
+
+Note:
+⏱ 1:12–1:17. Exactly IDS from session 5.1 with "depth" replaced by "f-cost".
+
+---
+
+## IDA* on the 8-puzzle
+
+<div class="w" data-widget="puzzle8" data-preset="medium"></div>
+
+Note:
+⏱ 1:17–1:24. Each bar = one iteration with its f-limit and nodes. Switch between h₁ and h₂ and compare the totals. Then "Hard (31 moves)" — one of the two hardest 8-puzzle instances: with h₂ IDA* needs ≈ 23 thousand nodes (instant); with h₁ ≈ 4.6 million (a couple of seconds). Same algorithm, 200× difference — a vivid argument for better heuristics. Medium (16 moves): 229 vs 2,123 nodes. "Shuffle 20" generates new solvable instances. At the end the stepper plays back the optimal solution.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="2">
+<p class="q">In IDA*, the bound for the next iteration is…</p>
+<ol><li>bound + 1</li><li>the smallest f-value that exceeded the current bound</li><li>twice the current bound</li><li>h(start)</li></ol>
+<p class="explain">That guarantees no solution with a smaller cost was skipped.</p>
+</div>
+
+--
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="3">
+<p class="q">You need the optimal solution of a 15-puzzle on a machine with little RAM. Choose:</p>
+<ol><li>BFS</li><li>A* with h₂</li><li>IDA* with h₂</li><li>Greedy best-first</li></ol>
+<p class="explain">A* runs out of memory (10¹³ states); IDA* uses O(d) memory and is optimal with an admissible h.</p>
+</div>
+
+Note:
+⏱ 1:24–1:28.
+
+---
+
+<!-- .slide: class="activity" -->
+## Your turn
+
+8-puzzle state:
+
+<div class="cols">
+<div>
+
+<pre style="width:9em;font-size:0.9em"><code>1 2 3
+4 _ 6
+7 5 8</code></pre>
+
+</div>
+<div>
+
+1. Compute h₁ and h₂ (goal: 1 2 3 / 4 5 6 / 7 8 _).
+2. What is the first IDA* bound with h₂?
+3. Find the optimal solution. Does its length equal h₂?
+
+</div>
+</div>
+
+<div class="timer" data-seconds="300"></div>
+
+<details><summary>Answers</summary>
+h₁ = 2 (tiles 5 and 8). h₂ = 1 + 1 = 2. First bound = 2. Optimal: move 5 up, 8 left → 2 moves = h₂ (the heuristic is exact here). Check with the "Easy" preset.
+</details>
+
+Note:
+⏱ 1:28–1:35.
+
+---
+
+<!-- .slide: class="checkpoint" -->
+## Exit ticket
+
+<div class="quiz" data-answer="1">
+<p class="q">A* with an admissible heuristic is guaranteed to…</p>
+<ol><li>find an optimal solution (tree search)</li><li>use polynomial memory</li><li>expand fewer nodes than greedy best-first</li><li>run in polynomial time</li></ol>
+<p class="explain">Optimality yes; memory and time can still be exponential.</p>
+</div>
+
+Note:
+⏱ 1:35–1:40. Reading: R&N 3.5–3.6. Amit Patel's "Introduction to A*" (Red Blob Games) is an excellent interactive companion.
+
+---
+
+## Takeaways
+
+- **Greedy** (f = h) is fast but not optimal: 450 km vs 418 km on the Romania map.
+- **A***: expand the node with smallest **f = g + h**. h = 0 → Dijkstra; ignore g → greedy.
+- **Admissible** (tree) / **consistent** (graph) h ⇒ **optimal**.
+- Better heuristics (dominating, from **relaxed problems**) ⇒ dramatically fewer nodes.
+- **IDA***: A*'s optimality with **O(d)** memory, by deepening on f.
+
+<p class="muted small">Next: when even good heuristics are not enough — heavy pruning and meet in the middle.</p>
+</textarea>
+</section>
+</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/markdown/markdown.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/math/math.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/zoom/zoom.js"></script>
+<script src="../assets/js/widgets.js"></script>
+<script src="../assets/js/widgets-search.js"></script>
+<script src="../assets/js/course.js"></script>
+<script>Course.init();</script>
+</body>
+</html>

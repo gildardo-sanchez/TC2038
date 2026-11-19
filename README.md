@@ -195,7 +195,11 @@ Requieren cargar también `assets/js/widgets-search.js` (ya incluido en las sesi
 | `ga` | Algoritmo genético para la mochila (W = 15) | — |
 | `aco` | Colonia de hormigas en el TSP con feromona visible | `data-n` |
 
-Widget adicional de la sesión 5.1: `river` (lobo, cabra y col) con `data-mode="play"` (solo el juego) o `data-mode="space"` (el juego junto al grafo de los 10 estados legales, con tu camino y una solución más corta) y `puzzle15` (15-puzzle jugable: varias metas, inicio aleatorio resoluble y el reto imposible de Sam Loyd).
+Widget adicional de la sesión 5.1: `river` (lobo, cabra y col) con `data-mode="play"` (solo el juego) o `data-mode="space"` (el juego junto al grafo de los 10 estados legales, con tu camino y una solución más corta) y `puzzle15` (15-puzzle jugable: varias metas, inicio aleatorio resoluble y el reto imposible de Sam Loyd) y `nqmasks` (N-reinas paso a paso: tablero junto a las máscaras columns, down-right, down-left y free; `data-n="4|5|6"`).
+
+Widget adicional de la sesión 5.2: `romania` (mapa de Rumania de Russell & Norvig, de Arad a Bucarest: greedy best-first, A* y costo uniforme paso a paso, con la frontera ordenada por f; `data-mode="map"` muestra solo el mapa, `data-algo="greedy|astar|ucs"`).
+
+Orden de la Unidad 5: 5.1 búsqueda ciega y bitmasks · 5.2 búsqueda informada (A*, IDA*) · 5.3 poda y meet in the middle · 5.4 búsqueda local.
 
 ### Numeración
 

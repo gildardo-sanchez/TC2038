@@ -33,7 +33,7 @@
 <p class="byline">Dr. Gildardo Sánchez Ante · Tecnológico de Monterrey<br><span class="tiny">Russell & Norvig, <i>AI: A Modern Approach</i>, ch. 3 · Halim & Halim, <i>Competitive Programming</i>, ch. 3 & 8</span></p>
 
 Note:
-⏱ 0:00–0:02. Unit 5 in four sessions: (5.1) blind search + bitmasks, (5.2) heavy pruning + meet in the middle, (5.3) A* and IDA*, (5.4) local search: hill climbing, simulated annealing, genetic algorithms and ant colonies. Syllabus 5.1 and 5.2 today. This group has never seen AI search: the first 40 minutes build the idea of an agent that searches a state space (R&N ch. 2–3) before any algorithm.
+⏱ 0:00–0:02. Unit 5 in four sessions: (5.1) blind search + bitmasks, (5.2) informed search: A* and IDA*, (5.3) heavy pruning + meet in the middle, (5.4) local search: hill climbing, simulated annealing, genetic algorithms and ant colonies. Syllabus 5.1 and 5.2 today. This group has never seen AI search: the first 40 minutes build the idea of an agent that searches a state space (R&N ch. 2–3) before any algorithm.
 
 ---
 
@@ -224,7 +224,7 @@ Note:
 <div class="w" data-widget="puzzle15"></div>
 
 Note:
-Optional, 3–5 minutes (or leave it open while students arrive). Volunteers play "Easy" with the standard goal; then change the goal (spiral, columns…) — same puzzle, different goal test. Ask: "what is a state here? an action?" (an arrangement of the 16 squares; moving the GAP up/down/left/right: at most 4 actions, so b ≤ 4). Finish with Loyd's $1,000 challenge (14 and 15 swapped): the widget shows that it is unreachable. Every move preserves a parity invariant, so the 16! arrangements split into two halves that never meet — that is why the state space has 16!/2 ≈ 10¹³ reachable states. Hard (random) starts need up to 80 moves even for an optimal solver; in session 5.3 IDA* solves them.
+Optional, 3–5 minutes (or leave it open while students arrive). Volunteers play "Easy" with the standard goal; then change the goal (spiral, columns…) — same puzzle, different goal test. Ask: "what is a state here? an action?" (an arrangement of the 16 squares; moving the GAP up/down/left/right: at most 4 actions, so b ≤ 4). Finish with Loyd's $1,000 challenge (14 and 15 swapped): the widget shows that it is unreachable. Every move preserves a parity invariant, so the 16! arrangements split into two halves that never meet — that is why the state space has 16!/2 ≈ 10¹³ reachable states. Hard (random) starts need up to 80 moves even for an optimal solver; in session 5.2 IDA* solves them.
 
 ---
 
@@ -409,7 +409,7 @@ Note:
 <p class="tiny muted">¹ b finite · ² step costs ≥ ε &gt; 0 · ³ all step costs equal. (R&N, Fig. 3.21)</p>
 
 Note:
-⏱ 1:04–1:08. Bidirectional: two searches meeting in the middle — b^(d/2) + b^(d/2) ≪ b^d. Same idea as "meet in the middle" next session!
+⏱ 1:04–1:08. Bidirectional: two searches meeting in the middle — b^(d/2) + b^(d/2) ≪ b^d. Same idea as "meet in the middle" in session 5.3!
 
 ---
 
@@ -432,15 +432,6 @@ Note:
 Note:
 ⏱ 1:08–1:11.
 
----
-## Question
-
-In backtracking and searching, each node keeps track of what I’ve already used: which columns 
-are filled in, which cities I’ve already visited. 
-How would you store that information so that copying, comparing, and looking it up 
-would be virtually free?”
-
-Answer: If there are only a few elements (n ≤ 64), a single integer can represent the entire set. <!-- .element: class="fragment" -->
 ---
 
 <!-- .slide: class="divider" -->
@@ -485,7 +476,7 @@ Note:
 
 ---
 
- ## N-queens: three masks and a shift
+## N-queens: three masks and a shift
 
 <div class="cols">
 <div>
@@ -518,13 +509,6 @@ void solve(int cols, int ld, int rd) {
 
 Note:
 Draw a queen on the board and its two diagonals: in the next row they hit columns c+1 and c−1, then c+2 and c−2… That is why ld shifts left and rd shifts right. ld may grow beyond n bits: harmless, because avail is ANDed with all.
-
----
-
-
-## N-queens: watch the masks
-
-<div class="w" data-widget="nqmasks" data-n="4" data-h="340"></div>
 
 ---
 
@@ -563,11 +547,19 @@ Draw a queen on the board and its two diagonals: in the next row they hit column
 
 Note:
 Reveal one row per click (→). Before each click ask the room to compute the next row: cols' = cols | bit, ld' = (ld | bit) << 1, rd' = (rd | bit) >> 1, avail = ~(cols | ld | rd) & 1111. Red rows: avail = 0 → dead end, backtrack (the recursion returns and the while loop tries the next free bit). Highlight the moment where the shifted masks "see" a diagonal attack without any loop over previous queens. The "Your turn" exercise later is exactly the second branch (queen in column 1 of row 0). Then show the widget on the next slide.
- 
-    
+
 ---
 
-## N-queens with three masks
+## N-queens: watch the masks
+
+<div class="w" data-widget="nqmasks" data-n="4" data-h="340"></div>
+
+Note:
+Same search as the hand trace, now animated. Left: the board; the current row is shaded green (free) / red (attacked), and dashed lines show where each placed queen attacks the current row (orange: column, purple: down-right diagonal, blue: down-left). Right: the three masks and free = ~(columns | down-right | down-left). Here the cells are drawn in COLUMN order (bit 0 on the left) so they line up with the board; in the hand-trace table we wrote the usual binary order (bit 0 on the right). Turn off "Stop at first solution" to see the second solution of 4-queens; try n = 5 and 6. Press ↓ for the larger-n version with "Count all solutions".
+
+--
+
+## N-queens: count them all
 
 <div class="w" data-widget="nqbits" data-n="6"></div>
 
@@ -636,7 +628,7 @@ Note:
 - **IDS**: the best blind strategy for unknown depth. **UCS**: optimal for any positive costs.
 - **Bitmasks**: sets as integers → fast backtracking (N-queens) and DP over subsets.
 
-<p class="muted small">Next: prune harder — and meet in the middle.</p>
+<p class="muted small">Next: informed search — give the search a compass (A* and IDA*).</p>
 </textarea>
 </section>
 </div>
