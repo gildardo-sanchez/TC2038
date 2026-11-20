@@ -254,6 +254,66 @@
   });
 
   /* =======================================================
+     0e. IDA* on the Romania map: one DFS per f-limit, tree view
+     ======================================================= */
+  register("idaromania", (host, d) => {
+    const start = d.start || "Arad", goal = "Bucharest";
+    const adj = {}; Object.keys(RO.pos).forEach((c) => (adj[c] = [])); RO.roads.forEach(([a, b, w]) => { adj[a].push([b, w]); adj[b].push([a, w]); });
+    Object.values(adj).forEach((l) => l.sort((x, y) => x[0].localeCompare(y[0])));
+    const short = (c) => (c === "Rimnicu Vilcea" ? "Rimnicu V." : c);
+    const sv = mkSvg(960, 330), side = h("div", { style: "font-size:0.6em" }), stepper = Stepper(draw);
+    host.append(h("div", { style: "display:grid;grid-template-columns:2.4fr 1fr;gap:.6em;align-items:start" }, sv, side), stepper.bar, stepper.caption);
+    const frames = [], iters = [];
+    let bound = RO.h[start], found = null;
+    for (let it = 1; it <= 12 && !found; it++) {
+      const nodes = [], minOver = { v: Infinity }; let id = 0;
+      const F = (o) => frames.push(Object.assign({ it, bound, nodes, sts: nodes.map((x) => x.st), iters: iters.slice() }, o));
+      const root = { id: id++, c: start, g: 0, f: RO.h[start], par: null, kids: [], st: "open", depth: 0 };
+      nodes.push(root);
+      F({ cur: root.id, nNodes: 1, msg: it === 1 ? `Iteration 1: f-limit = f(${start}) = h(${start}) = <b>${bound}</b>. Start a depth-first search that cuts every node with f &gt; ${bound}.` : `Iteration ${it}: new f-limit = <b>${bound}</b> (the smallest f that was cut last time). Start again from ${start}: IDA* keeps NOTHING from the previous iteration.` });
+      (function dfs(n, path) {
+        if (found) return;
+        if (n.f > bound) { n.st = "cut"; minOver.v = Math.min(minOver.v, n.f); F({ cur: n.id, nNodes: nodes.length, msg: `${n.c}: f = ${n.g} + ${RO.h[n.c]} = <b>${n.f}</b> &gt; ${bound} → <span class="bad">cut</span>. Remember ${n.f} as a candidate for the next limit.` }); return; }
+        if (n.c === goal) { n.st = "goal"; found = n; F({ cur: n.id, nNodes: nodes.length, goal: true, msg: `${n.c}: f = <b>${n.f}</b> ≤ ${bound} and it is the goal → <span class="ok">solution found, cost ${n.g} km</span> (optimal, h is admissible).` }); return; }
+        n.st = "exp";
+        const kids = adj[n.c].filter(([c]) => !path.includes(c));
+        kids.forEach(([c, w]) => { const k = { id: id++, c, g: n.g + w, f: n.g + w + RO.h[c], par: n.id, kids: [], st: "open", depth: n.depth + 1 }; n.kids.push(k); nodes.push(k); });
+        F({ cur: n.id, nNodes: nodes.length, msg: `${n.c}: f = ${n.f} ≤ ${bound} → expand it: ${kids.map(([c]) => c).join(", ") || "no new neighbors"} (cities already on the path are skipped).` });
+        for (const k of n.kids) { dfs(k, path.concat(k.c)); if (found) return; }
+      })(root, [start]);
+      iters.push({ it, bound, gen: nodes.length, next: found ? null : minOver.v });
+      if (!found) { F({ endIt: true, nNodes: nodes.length, iters: iters.slice(), msg: `End of iteration ${it}: no solution with f ≤ ${bound}. ${nodes.length} nodes generated. Smallest f that was cut: <b>${minOver.v}</b> → next f-limit.` }); bound = minOver.v; }
+      else frames[frames.length - 1].iters = iters.slice();
+    }
+    // layout per iteration (all nodes of that iteration known at the end)
+    const lay = new Map();
+    frames.forEach((f) => { if (lay.has(f.nodes)) return; const N = f.nodes, byId = new Map(N.map((n) => [n.id, n])), pos = {}; let leaf = 0;
+      (function L(n) { if (!n.kids.length) { pos[n.id] = { x: leaf++, y: n.depth }; return; } n.kids.forEach(L); pos[n.id] = { x: (pos[n.kids[0].id].x + pos[n.kids[n.kids.length - 1].id].x) / 2, y: n.depth }; })(N[0]);
+      lay.set(N, { pos, leaves: Math.max(1, leaf), byId }); });
+    function draw(f) {
+      sv.replaceChildren();
+      const { pos, leaves } = lay.get(f.nodes), maxD = Math.max(1, ...f.nodes.map((n) => n.depth)), dx = Math.min(130, 900 / leaves), x0 = 480 - dx * (leaves - 1) / 2, dy = Math.min(78, 270 / maxD);
+      const X = (n) => x0 + pos[n.id].x * dx, Y = (n) => 30 + pos[n.id].y * dy, shown = f.nodes.slice(0, f.nNodes);
+      const vis = new Set(shown.map((n) => n.id));
+      const ST = (n) => f.sts[n.id] || "open";
+      shown.forEach((n) => { if (n.par == null) return; const p = f.nodes[n.par]; sv.append(S("line", { x1: X(p), y1: Y(p) + 14, x2: X(n), y2: Y(n) - 14, style: `stroke:${ST(n) === "cut" ? "var(--bad)" : "var(--muted)"};stroke-width:2;${ST(n) === "cut" ? "stroke-dasharray:5 4" : ""}` }));
+        sv.append(S("text", { x: (X(p) + X(n)) / 2 + 4, y: (Y(p) + Y(n)) / 2 + 4, "font-size": 12, class: "mono", style: "fill:var(--muted)" }, String(n.g - p.g))); });
+      const onPath = new Set(); if (f.goal) { let n = f.nodes.find((x) => x.id === f.cur); while (n) { onPath.add(n.id); n = n.par == null ? null : f.nodes[n.par]; } }
+      shown.forEach((n) => { const x = X(n), y = Y(n), cur = n.id === f.cur;
+        const fill = onPath.has(n.id) ? "var(--ok)" : ST(n) === "cut" ? "var(--bad-soft)" : ST(n) === "exp" ? "var(--accent-soft)" : "var(--surface)";
+        sv.append(S("rect", { x: x - 50, y: y - 15, width: 100, height: 30, rx: 8, style: `fill:${fill};stroke:${cur ? "var(--hot)" : ST(n) === "cut" ? "var(--bad)" : "var(--ink)"};stroke-width:${cur ? 4 : 1.5};${ST(n) === "cut" ? "stroke-dasharray:5 3" : ""}` }));
+        sv.append(S("text", { x, y: y + 5, "text-anchor": "middle", "font-size": 14, "font-weight": 700, style: onPath.has(n.id) ? "fill:#fff" : "" }, short(n.c)));
+        sv.append(S("text", { x: x + 52, y: y - 8, "font-size": 13, "font-weight": 700, class: "mono", style: `fill:${ST(n) === "cut" ? "var(--bad)" : "var(--accent)"}` }, String(n.f))); });
+      sv.append(S("text", { x: 950, y: 22, "text-anchor": "end", "font-size": 20, "font-weight": 700, class: "mono", style: "fill:var(--hot)" }, `f-limit = ${f.bound}`));
+      side.replaceChildren(h("b", {}, `Iteration ${f.it}`), h("table", { class: "tight", style: "margin:.3em 0" }, h("tr", {}, h("th", {}, "it."), h("th", {}, "f-limit"), h("th", {}, "nodes"), h("th", {}, "next")),
+        ...f.iters.map((r) => h("tr", {}, h("td", {}, String(r.it)), h("td", { class: "mono" }, String(r.bound)), h("td", { class: "mono" }, String(r.gen)), h("td", { class: "mono" }, r.next == null ? "✓" : String(r.next))))),
+        h("div", { class: "tiny muted" }, "Numbers next to the boxes: f = g + h. Red dashed = cut (f > limit). Memory: only the current path."));
+    }
+    stepper.set(frames);
+    return { stepper };
+  });
+
+  /* =======================================================
      1. Blind search on a tree: BFS · DFS · DLS · IDS
      ======================================================= */
   register("treesearch", (host, d) => {
