@@ -324,6 +324,9 @@ Note:
 ## IDA* on the Romania map
 
 <div class="w" data-widget="idaromania" data-h="320"></div>
+Note:
+⏱ 1:17–1:24. Same map as A*, so students already know the numbers. Six iterations with f-limits 366 → 393 → 413 → 415 → 417 → 418. In each iteration the DFS cuts every node with f above the limit (red, dashed) and remembers the smallest cut f: that becomes the next limit. Ask before each "End of iteration": "what will the next limit be?". Points to stress: (1) every iteration starts from scratch — memory is only the current path; (2) the upper part of the tree is regenerated many times (like IDS in 5.1), but the last iteration dominates the cost; (3) it finds the same optimal 418 km route as A*. The 8-puzzle version is on the next vertical slide (↓), optional.
+
 
 ---
 
