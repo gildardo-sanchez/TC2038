@@ -314,6 +314,81 @@
   });
 
   /* =======================================================
+     0f. Map coloring of Australia (R&N ch. 6): plain backtracking vs MRV + forward checking
+     ======================================================= */
+  register("australia", (host, d) => {
+    const V = ["WA", "NT", "SA", "Q", "NSW", "V", "T"];
+    const POS = { WA: [110, 190], NT: [270, 85], SA: [290, 220], Q: [450, 95], NSW: [480, 230], V: [380, 320], T: [540, 345] };
+    const E = [["WA", "NT"], ["WA", "SA"], ["NT", "SA"], ["NT", "Q"], ["SA", "Q"], ["SA", "NSW"], ["SA", "V"], ["Q", "NSW"], ["NSW", "V"]];
+    const nb = {}; V.forEach((v) => (nb[v] = [])); E.forEach(([a, b]) => { nb[a].push(b); nb[b].push(a); });
+    const COLS = ["R", "G", "B"], FILL = { R: "#fa5252", G: "#40c057", B: "#4c6ef5" }, NAME = { R: "red", G: "green", B: "blue" };
+    let mode = d.mode || "plain";
+    const sv = mkSvg(620, 400), stats = h("div", { class: "w-stats" }), stepper = Stepper(draw);
+    const mb = [["plain", "Plain backtracking (fixed order)"], ["smart", "MRV + forward checking"]].map(([k, nm]) => { const b = btn(nm, () => { mode = k; setOn(mb, b); build(); }); b.dataset.k = k; return b; });
+    host.append(h("div", { class: "w-toolbar" }, ...mb), sv, stepper.bar, stepper.caption, stats);
+    setOn(mb, mb.find((b) => b.dataset.k === mode));
+    function build() {
+      const frames = [], A = {}, D = {}; V.forEach((v) => (D[v] = COLS.slice()));
+      let tries = 0, backs = 0;
+      const F = (o) => frames.push(Object.assign({ A: { ...A }, D: Object.fromEntries(V.map((v) => [v, D[v].slice()])), tries, backs }, o));
+      if (mode === "plain") {
+        const order = ["WA", "NT", "NSW", "Q", "SA", "V", "T"];
+        F({ msg: `Plain backtracking, variables in a fixed order: ${order.join(", ")}; values red, green, blue. Each value is only checked against neighbors that are already colored.` });
+        (function bt(i) {
+          if (i === order.length) { F({ done: true, msg: `<span class="ok"><b>All 7 regions colored.</b></span> ${tries} assignments tried, ${backs} backtrack${backs === 1 ? "" : "s"}.` }); return true; }
+          const v = order[i];
+          for (const c of COLS) {
+            const clash = nb[v].find((u) => A[u] === c);
+            if (clash) { F({ cur: v, bad: clash, msg: `${v} = ${NAME[c]}? No: neighbor ${clash} is already ${NAME[c]}.` }); continue; }
+            A[v] = c; tries++; F({ cur: v, msg: `${v} = <b>${NAME[c]}</b>.` });
+            if (bt(i + 1)) return true;
+            delete A[v];
+          }
+          backs++; F({ cur: v, dead: true, msg: `<span class="bad">${v} has no (more) legal colors → dead end.</span> Undo the previous choice and try its next value (we only discover the problem now, at level ${i + 1}).` });
+          return false;
+        })(0);
+      } else {
+        F({ msg: "MRV + forward checking. Every region starts with domain {red, green, blue}. Next variable = fewest remaining values (ties: most unassigned neighbors)." });
+        (function bt() {
+          const un = V.filter((v) => !A[v]);
+          if (!un.length) { F({ done: true, msg: `<span class="ok"><b>All 7 regions colored.</b></span> ${tries} assignments tried, ${backs} backtrack${backs === 1 ? "" : "s"}. MRV picked the forced moves first; forward checking kept every domain non-empty.` }); return true; }
+          const deg = (v) => nb[v].filter((u) => !A[u]).length;
+          un.sort((a, b) => D[a].length - D[b].length || deg(b) - deg(a) || V.indexOf(a) - V.indexOf(b));
+          const v = un[0];
+          F({ cur: v, pick: true, msg: `MRV: <b>${v}</b> has ${D[v].length} remaining value${D[v].length === 1 ? "" : "s"} {${D[v].map((c) => NAME[c]).join(", ")}}${D[v].length === 1 ? " — a forced move, no branching" : un.length === V.length ? ` (tie on 3 values; ${v} has the most neighbors: ${deg(v)})` : ""}.` });
+          for (const c of D[v].slice()) {
+            const saved = Object.fromEntries(V.map((u) => [u, D[u].slice()]));
+            A[v] = c; tries++; D[v] = [c];
+            const pruned = []; let empty = null;
+            nb[v].forEach((u) => { if (!A[u] && D[u].includes(c)) { D[u] = D[u].filter((x) => x !== c); pruned.push(u); if (!D[u].length) empty = u; } });
+            F({ cur: v, fc: pruned, msg: `${v} = <b>${NAME[c]}</b>. Forward checking: remove ${NAME[c]} from ${pruned.join(", ") || "no neighbor"}${empty ? ` → <span class="bad">${empty} has an empty domain: backtrack now</span>` : ""}.` });
+            if (!empty && bt()) return true;
+            delete A[v]; V.forEach((u) => (D[u] = saved[u]));
+          }
+          backs++; return false;
+        })();
+      }
+      stepper.set(frames);
+    }
+    function draw(f) {
+      sv.replaceChildren();
+      E.forEach(([a, b]) => { const [x1, y1] = POS[a], [x2, y2] = POS[b]; const hot = f.bad && ((a === f.cur && b === f.bad) || (b === f.cur && a === f.bad));
+        sv.append(S("line", { x1, y1, x2, y2, style: `stroke:${hot ? "var(--bad)" : "var(--muted)"};stroke-width:${hot ? 5 : 2.5}` })); });
+      V.forEach((v) => { const [x, y] = POS[v], c = f.A[v], cur = v === f.cur;
+        sv.append(S("circle", { cx: x, cy: y, r: 32, style: `fill:${c ? FILL[c] : "var(--surface)"};stroke:${cur ? (f.dead ? "var(--bad)" : "var(--hot)") : "var(--ink)"};stroke-width:${cur ? 5 : 2}` }));
+        sv.append(S("text", { x, y: y + 6, "text-anchor": "middle", "font-size": 18, "font-weight": 700, style: c ? "fill:#fff" : "" }, v));
+        if (mode === "smart") COLS.forEach((k, i) => { const has = f.D[v].includes(k), cut = (f.fc || []).includes(v) && !has && f.A[f.cur] === k;
+          const cx = x - 26 + i * 26, cy = y + 48;
+          sv.append(S("rect", { x: cx - 11, y: cy - 11, width: 22, height: 22, rx: 5, style: `fill:${has ? FILL[k] : "var(--surface)"};fill-opacity:${has ? 0.85 : 1};stroke:${cut ? "var(--bad)" : "var(--line)"};stroke-width:${cut ? 3 : 1.2}` }));
+          if (!has) sv.append(S("line", { x1: cx - 9, y1: cy + 9, x2: cx + 9, y2: cy - 9, style: `stroke:${cut ? "var(--bad)" : "var(--muted)"};stroke-width:2.5` })); }); });
+      sv.append(S("text", { x: 10, y: 395, "font-size": 12, style: "fill:var(--muted)" }, "WA Western Australia · NT Northern Territory · SA South Australia · Q Queensland · NSW New South Wales · V Victoria · T Tasmania"));
+      stats.replaceChildren(stat("assignments tried:", f.tries), stat("backtracks:", f.backs));
+    }
+    build();
+    return { stepper };
+  });
+
+  /* =======================================================
      1. Blind search on a tree: BFS · DFS · DLS · IDS
      ======================================================= */
   register("treesearch", (host, d) => {

@@ -164,7 +164,52 @@ Note:
 </div>
 
 Note:
-⏱ 0:40–0:48. Also: memoize failed states (transposition tables in game search), and iterative deepening when depth is unknown.
+⏱ 0:40–0:43. Overview only: the next three slides show each weapon (map coloring, a checkpoint, symmetry). Also: memoize failed states (transposition tables in game search), and iterative deepening when depth is unknown.
+
+---
+
+## Fail-first: watch it on a map
+
+<p class="small">Color Australia with <b>3 colors</b>, neighbors must differ (R&N ch. 6 · graph coloring, session 3.5).</p>
+
+<div class="w" data-widget="australia" data-mode="plain" data-h="350"></div>
+
+Note:
+Run "Plain backtracking" first: with the fixed order WA, NT, NSW, Q, SA, V, T it colors NSW too early, Q is forced to blue, and only when it reaches SA does it discover that SA has no color left — a dead end found deep in the tree; it must undo and retry. Then switch to "MRV + forward checking": all domains tie at 3, so the degree rule picks SA (5 neighbors); SA = red removes red from all its neighbors; NT then has 2 values, and after NT = green, Q, NSW, WA and V each have exactly ONE value left — forced moves, no branching, 0 backtracks. Point at the crossed-out color chips: that is forward checking. Ask before each MRV step: "which region has the fewest colors left?"
+
+---
+
+<!-- .slide: class="checkpoint" -->
+<div class="quiz" data-answer="3">
+<p class="q">MRV picks the <b>hardest</b> variable first, but value ordering tries the <b>easiest</b> value first. Why the asymmetry?</p>
+<ol><li>It's a historical convention</li><li>Because values are cheaper to compare than variables</li><li>Every variable must be assigned anyway, so face the hardest one early (fail fast); but we need only ONE value that works, so try the most promising first</li><li>MRV and value ordering are the same rule</li></ol>
+<p class="explain">"Fail-first" for variables, "succeed-first" for values. (If we want ALL solutions, value order no longer matters.)</p>
+</div>
+
+Note:
+3 minutes. R&N example of least-constraining value: with WA = red and NT = green, choosing Q = blue would leave SA with no color; Q = red keeps blue available for SA.
+
+---
+
+## Symmetry breaking: don't solve the same thing twice
+
+<div class="cols">
+<div>
+<svg viewBox="0 0 400 175" style="width:100%;max-height:200px"><rect x="0" y="0" width="40" height="40" style="fill:#f1f3f5"/><rect x="40" y="0" width="40" height="40" style="fill:#ced4da"/><rect x="80" y="0" width="40" height="40" style="fill:#f1f3f5"/><rect x="120" y="0" width="40" height="40" style="fill:#ced4da"/><rect x="0" y="40" width="40" height="40" style="fill:#ced4da"/><rect x="40" y="40" width="40" height="40" style="fill:#f1f3f5"/><rect x="80" y="40" width="40" height="40" style="fill:#ced4da"/><rect x="120" y="40" width="40" height="40" style="fill:#f1f3f5"/><rect x="0" y="80" width="40" height="40" style="fill:#f1f3f5"/><rect x="40" y="80" width="40" height="40" style="fill:#ced4da"/><rect x="80" y="80" width="40" height="40" style="fill:#f1f3f5"/><rect x="120" y="80" width="40" height="40" style="fill:#ced4da"/><rect x="0" y="120" width="40" height="40" style="fill:#ced4da"/><rect x="40" y="120" width="40" height="40" style="fill:#f1f3f5"/><rect x="80" y="120" width="40" height="40" style="fill:#ced4da"/><rect x="120" y="120" width="40" height="40" style="fill:#f1f3f5"/><text x="60" y="30" text-anchor="middle" font-size="28" style="fill:#c92a2a">♛</text><text x="140" y="70" text-anchor="middle" font-size="28" style="fill:#c92a2a">♛</text><text x="20" y="110" text-anchor="middle" font-size="28" style="fill:#c92a2a">♛</text><text x="100" y="150" text-anchor="middle" font-size="28" style="fill:#c92a2a">♛</text><rect x="0" y="0" width="160" height="160" style="fill:none;stroke:var(--ink);stroke-width:2"/><line x1="200" y1="0" x2="200" y2="160" style="stroke:var(--hot);stroke-width:3;stroke-dasharray:6 5"/><text x="200" y="174" text-anchor="middle" font-size="13" style="fill:var(--hot)">mirror</text><rect x="240" y="0" width="40" height="40" style="fill:#f1f3f5"/><rect x="280" y="0" width="40" height="40" style="fill:#ced4da"/><rect x="320" y="0" width="40" height="40" style="fill:#f1f3f5"/><rect x="360" y="0" width="40" height="40" style="fill:#ced4da"/><rect x="240" y="40" width="40" height="40" style="fill:#ced4da"/><rect x="280" y="40" width="40" height="40" style="fill:#f1f3f5"/><rect x="320" y="40" width="40" height="40" style="fill:#ced4da"/><rect x="360" y="40" width="40" height="40" style="fill:#f1f3f5"/><rect x="240" y="80" width="40" height="40" style="fill:#f1f3f5"/><rect x="280" y="80" width="40" height="40" style="fill:#ced4da"/><rect x="320" y="80" width="40" height="40" style="fill:#f1f3f5"/><rect x="360" y="80" width="40" height="40" style="fill:#ced4da"/><rect x="240" y="120" width="40" height="40" style="fill:#ced4da"/><rect x="280" y="120" width="40" height="40" style="fill:#f1f3f5"/><rect x="320" y="120" width="40" height="40" style="fill:#ced4da"/><rect x="360" y="120" width="40" height="40" style="fill:#f1f3f5"/><text x="340" y="30" text-anchor="middle" font-size="28" style="fill:#c92a2a">♛</text><text x="260" y="70" text-anchor="middle" font-size="28" style="fill:#c92a2a">♛</text><text x="380" y="110" text-anchor="middle" font-size="28" style="fill:#c92a2a">♛</text><text x="300" y="150" text-anchor="middle" font-size="28" style="fill:#c92a2a">♛</text><rect x="240" y="0" width="160" height="160" style="fill:none;stroke:var(--ink);stroke-width:2"/></svg>
+<p class="small" style="text-align:center">The two solutions of 4-queens are mirror images: columns 1, 3, 0, 2 and 2, 0, 3, 1.</p>
+</div>
+<div>
+
+- **N-queens:** put the first queen only in the **left half**, count every solution twice (careful with the middle column when n is odd). <!-- .element: class="fragment" -->
+- 8-queens: **92** solutions, only **12** essentially different under rotations and reflections. <!-- .element: class="fragment" -->
+- **TSP** (session 3.3): fix the starting city and ignore the direction → (n − 1)!/2 tours instead of n!. <!-- .element: class="fragment" -->
+- **Coloring:** colors are interchangeable, so fix WA = red: 3× less work. <!-- .element: class="fragment" -->
+
+</div>
+</div>
+
+Note:
+Message: none of these weapons changes the exponential worst case, and all of them keep correctness (we only change the ORDER or discard what is provably redundant). In practice they cut the tree by orders of magnitude. Also mention memoizing failed states (transposition tables).
 
 ---
 
